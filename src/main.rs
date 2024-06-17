@@ -30,13 +30,9 @@ async fn main() {
                     }
                 });
             }
-            Err(e) => {
-
-            }
+            Err(_) => ()
         }
     }
-
-    println!("Program ended");
 }
 
 // fn handle_client(mut stream: TcpStream) {
