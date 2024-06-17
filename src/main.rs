@@ -22,6 +22,8 @@ fn main() {
             }
         }
     }
+
+    println!("Program ended");
 }
 
 fn handle_client(mut stream: TcpStream) {
