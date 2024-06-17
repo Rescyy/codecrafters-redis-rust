@@ -1,7 +1,7 @@
 // Uncomment this block to pass the first stage
 use std::net::TcpListener;
 use std::net::TcpStream;
-// use std::io::Read;
+use std::io::Read;
 use std::io::Write;
 
 fn main() {
@@ -24,10 +24,14 @@ fn main() {
     }
 }
 
-fn handle_client(mut stream: TcpStream) { 
+fn handle_client(mut stream: TcpStream) {
+    let mut buffer = [0u8; 512]; 
+    let response = "+PONG\r\n".as_bytes();
     loop {
-        stream.flush().expect("Error flushing the stream");
-        let response = "+PONG\r\n".as_bytes();
+        let read_bytes = stream.read(&mut buffer).expect("Failed to read from client");
+        if read_bytes == 0 {
+            return;
+        }
         stream.write_all(response).expect("Failed to send PONG response");
     }
 }
