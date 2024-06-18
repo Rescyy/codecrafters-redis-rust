@@ -19,6 +19,8 @@ pub enum RespDatatype {
     // Push
 }
 
+// const NULL_BULK_STRING: RespDatatype = RespDatatype::BulkString(None);
+
 // In the future may change return type to Result, it's easier to implement Option
 pub fn deserialize(buf: Vec<u8>) -> Option<RespDatatype> {
     

@@ -7,8 +7,14 @@ use command_interpreter::*;
 mod command_responder;
 use command_responder::*;
 
+mod database;
+// use database::*;
+
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::AsyncReadExt;
+
+#[macro_use]
+extern crate lazy_static;
 
 #[tokio::main]
 async fn main() {
@@ -50,23 +56,10 @@ async fn handle_client(mut stream: TcpStream) {
     
         println!("Interpreting");
         let redis_command = interpret(resp_object)
+        .await
         .expect("Failed to interpret Redis command");
     
         println!("Responding");
         respond(&mut stream, redis_command).await;
     }
 }
-
-// fn main() {
-//     let resp_object = deserialize(b"*2\r\n$4\r\nECHO\r\n$9\r\npineapple\r\n".to_vec())
-//         .expect("Failed to deserialize RESP object");
-    
-//     println!("{:?}", resp_object);
-
-//     let redis_command = interpret(resp_object)
-//     .expect("Failed to interpret Redis command");
-
-//     println!("{:?}", redis_command);
-
-//     respond_test(redis_command);
-// }
