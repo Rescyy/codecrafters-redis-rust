@@ -24,7 +24,7 @@ async fn main() {
         
         match stream {
             Ok((stream, _)) => {
-                println!("accepted new connection!");
+                println!("Accepted new connection!");
                 tokio::spawn(handle_client(stream));
             }
             Err(_) => ()
@@ -47,3 +47,17 @@ async fn handle_client(mut stream: TcpStream) {
 
     respond(stream, redis_command).await;
 }
+
+// fn main() {
+//     let resp_object = deserialize(b"*2\r\n$4\r\nECHO\r\n$9\r\npineapple\r\n".to_vec())
+//         .expect("Failed to deserialize RESP object");
+    
+//     println!("{:?}", resp_object);
+
+//     let redis_command = interpret(resp_object)
+//     .expect("Failed to interpret Redis command");
+
+//     println!("{:?}", redis_command);
+
+//     respond_test(redis_command);
+// }

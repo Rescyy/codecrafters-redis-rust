@@ -1,5 +1,6 @@
 use crate::resp_handler::RespDatatype;
 
+#[derive(Debug)]
 pub enum RedisCommand {
     Ping,
     Echo(Option<Vec<u8>>),
