@@ -24,8 +24,9 @@ async fn main() {
         
         match stream {
             Ok((stream, _)) => {
-                println!("Accepted new connection!");
-                tokio::spawn(handle_client(stream));
+                tokio::spawn(async move {
+                    handle_client(stream).await
+                });
             }
             Err(_) => ()
         }
@@ -33,7 +34,7 @@ async fn main() {
 }
 
 async fn handle_client(mut stream: TcpStream) {
-    println!("Handling client");
+    println!("Accepted new connection! Handling client");
     let mut buf = Vec::<u8>::new();
     println!("Reading bytes");
     let read_bytes = stream.read_buf(&mut buf).await.expect("Couldn't read bytes");
