@@ -10,10 +10,10 @@ pub fn interpret(resp_object: RespDatatype) -> Option<RedisCommand> {
     match resp_object {
         RespDatatype::Array(Some(array)) => {
             let command = match array.get(0) {
-                Some(RespDatatype::BulkString(Some(bulk_string))) => &bulk_string[..],
+                Some(RespDatatype::BulkString(Some(bulk_string))) => bulk_string.to_ascii_uppercase(),
                 _ => return None,
             };
-            match command {
+            match &command[..] {
                 b"PING" => {
                     return Some(RedisCommand::Ping);
                 },
