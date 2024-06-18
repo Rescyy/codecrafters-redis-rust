@@ -35,24 +35,26 @@ async fn main() {
 
 async fn handle_client(mut stream: TcpStream) {
     println!("Accepted new connection! Handling client");
-    let mut buf = Vec::<u8>::new();
-    println!("Reading bytes");
-    let read_bytes = stream.read_buf(&mut buf).await.expect("Couldn't read bytes");
-    if read_bytes == 0 {
-        println!("No bytes received");
-        return;
+    loop {
+        let mut buf = Vec::<u8>::new();
+        println!("Reading bytes");
+        let read_bytes = stream.read_buf(&mut buf).await.expect("Couldn't read bytes");
+        if read_bytes == 0 {
+            println!("No bytes received");
+            return;
+        }
+    
+        println!("Deserializing");
+        let resp_object = deserialize(buf)
+        .expect("Failed to deserialize RESP object");
+    
+        println!("Interpreting");
+        let redis_command = interpret(resp_object)
+        .expect("Failed to interpret Redis command");
+    
+        println!("Responding");
+        respond(&mut stream, redis_command).await;
     }
-
-    println!("Deserializing");
-    let resp_object = deserialize(buf)
-    .expect("Failed to deserialize RESP object");
-
-    println!("Interpreting");
-    let redis_command = interpret(resp_object)
-    .expect("Failed to interpret Redis command");
-
-    println!("Responding");
-    respond(stream, redis_command).await;
 }
 
 // fn main() {

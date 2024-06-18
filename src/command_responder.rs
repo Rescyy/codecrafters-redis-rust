@@ -3,7 +3,7 @@ use tokio::net::TcpStream;
 use tokio::io::AsyncWriteExt;
 use crate::resp_handler::{serialize, RespDatatype};
 
-pub async fn respond(mut stream: TcpStream, redis_command: RedisCommand) {
+pub async fn respond(stream: &mut TcpStream, redis_command: RedisCommand) {
     let response = formulate_response(redis_command);
     println!("Response: {:?}", String::from_utf8(response.clone()).unwrap());
     stream.write(&response)
