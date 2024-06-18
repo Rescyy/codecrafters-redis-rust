@@ -1,6 +1,14 @@
-// Uncomment this block to pass the first stage
-use tokio::net::TcpListener;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+mod resp_handler;
+use resp_handler::*;
+
+mod command_interpreter;
+use command_interpreter::*;
+
+mod command_responder;
+use command_responder::*;
+
+use tokio::net::{TcpListener, TcpStream};
+use tokio::io::AsyncReadExt;
 
 #[tokio::main]
 async fn main() {
@@ -15,34 +23,27 @@ async fn main() {
         let stream = listener.accept().await;
         
         match stream {
-            Ok((mut stream, _)) => {
+            Ok((stream, _)) => {
                 println!("accepted new connection!");
-
-                tokio::spawn(async move {
-                    let mut buf = [0u8; 512];
-                    loop {
-                        let read_count = stream.read(&mut buf).await.unwrap();
-                        if read_count == 0 {
-                            break;
-                        }
-
-                        stream.write(b"+PONG\r\n").await.unwrap();
-                    }
-                });
+                tokio::spawn(handle_client(stream));
             }
             Err(_) => ()
         }
     }
 }
 
-// fn handle_client(mut stream: TcpStream) {
-//     let mut buffer = [0u8; 512]; 
-//     let response = "+PONG\r\n".as_bytes();
-//     loop {
-//         let read_bytes = stream.read(&mut buffer).expect("Failed to read from client");
-//         if read_bytes == 0 {
-//             return;
-//         }
-//         stream.write_all(response).expect("Failed to send PONG response");
-//     }
-// }
+async fn handle_client(mut stream: TcpStream) {
+    let mut buf = Vec::<u8>::new();
+    let read_bytes = stream.read_to_end(&mut buf).await.unwrap();
+    if read_bytes <= 0 {
+        return;
+    }
+
+    let resp_object = deserialize(buf)
+    .expect("Failed to deserialize RESP object");
+
+    let redis_command = interpret(resp_object)
+    .expect("Failed to interpret Redis command");
+
+    respond(stream, redis_command).await;
+}
