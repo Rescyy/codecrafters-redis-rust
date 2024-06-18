@@ -36,7 +36,7 @@ async fn handle_client(mut stream: TcpStream) {
     println!("Handling client");
     let mut buf = Vec::<u8>::new();
     println!("Reading bytes");
-    let read_bytes = stream.read(&mut buf).await.expect("Couldn't read bytes");
+    let read_bytes = stream.read_buf(&mut buf).await.expect("Couldn't read bytes");
     if read_bytes == 0 {
         println!("No bytes received");
         return;
