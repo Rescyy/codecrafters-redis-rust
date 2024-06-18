@@ -32,6 +32,8 @@ fn formulate_response(redis_command: RedisCommand) -> Vec<u8> {
         RedisCommand::BulkString(message) => {
             serialize(RespDatatype::BulkString(message))
         },
-        _ => vec![],
+        RedisCommand::Error(message) => {
+            serialize(RespDatatype::SimpleError(message))
+        }
     }
 }

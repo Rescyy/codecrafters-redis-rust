@@ -6,7 +6,7 @@ use crate::database::*;
 pub enum RedisCommand {
     Ping,
     Ok,
-    Error(Vec<u8>),
+    Error(String),
     BulkString(Option<Vec<u8>>),
 }
 
@@ -69,11 +69,21 @@ async fn interpret_set(mut array_iterator: IntoIter<RespDatatype>) -> Option<Red
                                 if integer >= 0 {
                                     Some(integer.try_into().unwrap())
                                 } else {
-                                    return Some(RedisCommand::Error(b"Integer argument for PX cannot be negative".to_vec()))
+                                    return Some(RedisCommand::Error(String::from("Integer argument for PX cannot be negative")))
                                 }
                             },
-                            None => return Some(RedisCommand::Error(b"No integer argument given for PX".to_vec())),
-                            _ => return Some(RedisCommand::Error(b"Invalid argument given for PX".to_vec())),
+                            Some(RespDatatype::BulkString(Some(bulk_string))) => {
+                                let bulk_string = match String::from_utf8(bulk_string) {
+                                    Ok(bulk_string) => bulk_string,
+                                    Err(_) => return Some(RedisCommand::Error(String::from("Invalid argument given for PX")))
+                                };
+                                match bulk_string.parse() {
+                                    Ok(res) => Some(res),
+                                    Err(_) => return Some(RedisCommand::Error(String::from("Invalid argument given for PX")))
+                                }
+                            }
+                            None => return Some(RedisCommand::Error(String::from("No integer argument given for PX"))),
+                            _ => return Some(RedisCommand::Error(String::from("Invalid argument given for PX"))),
                         }
                     },
                     _ => (),

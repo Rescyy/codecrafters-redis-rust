@@ -63,3 +63,9 @@ async fn handle_client(mut stream: TcpStream) {
         respond(&mut stream, redis_command).await;
     }
 }
+
+// fn main() {
+//     let resp_object = deserialize(b"*5\r\n$3\r\nSET\r\n$4\r\npear\r\n$6\r\nbanana\r\n$2\r\npx\r\n$3\r\n100\r\n".to_vec())
+//         .expect("Failed to deserialize RESP object");
+//     println!("{:?}",resp_object);
+// }
