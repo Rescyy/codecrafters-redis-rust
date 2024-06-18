@@ -5,11 +5,13 @@ use crate::resp_handler::{serialize, RespDatatype};
 
 pub async fn respond(mut stream: TcpStream, redis_command: RedisCommand) {
     let response = formulate_response(redis_command);
+    dbg!("{}", &response);
     stream.write(&response)
         .await
         .expect("Failed to respond");
 }
 
+#[allow(dead_code)]
 pub fn respond_test(redis_command: RedisCommand) {
     let response = formulate_response(redis_command);
     println!("Response: {:?}", String::from_utf8(response));
