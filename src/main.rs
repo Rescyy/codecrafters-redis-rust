@@ -27,7 +27,10 @@ async fn main() {
     args.next();
     while let Some(flag) = args.next() {
         match flag.as_str() {
-            "--port" => port = args.next().expect("No port given after --port flag"),
+            "--port" => {
+                port = args.next().expect("No port given after --port flag");
+                port.parse::<u16>().expect("Invalid port given");
+            },
             flag => panic!("Unknown flag: \"{flag}\""),
         }
     }
