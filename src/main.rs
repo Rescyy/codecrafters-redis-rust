@@ -12,6 +12,7 @@ mod database;
 
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::AsyncReadExt;
+use std::env;
 
 #[macro_use]
 extern crate lazy_static;
@@ -21,9 +22,19 @@ async fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     println!("Logs from your program will appear here!");
 
+    let mut port = String::from("6379");
+    let mut args = env::args();
+    args.next();
+    while let Some(flag) = args.next() {
+        match flag.as_str() {
+            "--port" => port = args.next().expect("No port given after --port flag"),
+            flag => panic!("Unknown flag: \"{flag}\""),
+        }
+    }
+
     // Uncomment this block to pass the first stage
     
-    let listener = TcpListener::bind("127.0.0.1:6379").await.unwrap();
+    let listener = TcpListener::bind(format!("127.0.0.1:{port}")).await.expect("Couldn't start the server");
 
     loop {
         let stream = listener.accept().await;
