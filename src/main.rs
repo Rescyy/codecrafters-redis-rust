@@ -17,29 +17,47 @@ use std::env;
 #[macro_use]
 extern crate lazy_static;
 
+const INCORRECT_FORMAT_PORT: &str = "Incorrect format for --port flag. Required format \"--port <PORT>\"";
+const INCORRECT_FORMAT_REPLICAOF: &str = "Incorrect format for --replicaof flag. Required format \"--replicaof <MASTER_HOST MASTER_PORT>\"";
+
 #[tokio::main]
 async fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     println!("Logs from your program will appear here!");
 
     let mut port = String::from("6379");
-    let role = b"master";
+    let mut role: &[u8] = b"master";
+    let mut master_host = String::from("localhost");
+    let mut master_port = String::from("6379");
 
     let mut args = env::args();
     args.next();
     while let Some(flag) = args.next() {
         match flag.as_str() {
             "--port" => {
-                port = args.next().expect("No port given after --port flag");
+                port = args.next().expect(INCORRECT_FORMAT_PORT);
                 port.parse::<u16>().expect("Invalid port given");
+            },
+            "--replicaof" => {
+                role = b"slave";
+                let replicaof_arg = args.next().expect(INCORRECT_FORMAT_REPLICAOF);
+                let mut master_args = replicaof_arg.split(" ");
+                master_host = master_args.next().expect(INCORRECT_FORMAT_REPLICAOF).to_string();
+                master_port = master_args.next().expect(INCORRECT_FORMAT_REPLICAOF).to_string();
+                if master_args.next() != None {
+                    panic!("{}", INCORRECT_FORMAT_REPLICAOF);
+                }
             },
             flag => panic!("Unknown flag: \"{flag}\""),
         }
     }
 
     let listener = TcpListener::bind(format!("127.0.0.1:{port}")).await.expect("Couldn't start the server");
+
     set_value(b"port", port.as_bytes()).await;
     set_value(b"role", role).await;
+    set_value(b"master_host", master_host.as_bytes()).await;
+    set_value(b"master_port", master_port.as_bytes()).await;
 
     loop {
         let stream = listener.accept().await;
