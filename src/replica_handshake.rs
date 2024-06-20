@@ -9,6 +9,7 @@ lazy_static! {
 pub async fn send_handshake(master_host: &String, master_port: &String, slave_port: &String) -> Result<(), std::io::Error> {
     let mut stream = TcpStream::connect(format!("{master_host}:{master_port}")).await?;
     stream.write(&PING_COMMAND[..]).await?;
+    stream.flush().await?;
     let replconf_command1 = serialize(
         &RespDatatype::Array(
             vec![
@@ -19,6 +20,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
         )
     );
     stream.write(&replconf_command1).await?;
+    stream.flush().await?;
     let replconf_command2 = serialize(
         &RespDatatype::Array(
             vec![
@@ -29,5 +31,6 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
         )
     );
     stream.write(&replconf_command2).await?;
+    stream.flush().await?;
     return Ok(());
 }
