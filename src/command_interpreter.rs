@@ -22,58 +22,32 @@ pub async fn interpret(resp_object: RespDatatype) -> Option<RedisCommand> {
                 _ => return None,
             };
             match &command[..] {
-                b"PING" => {
-                    return Some(RedisCommand::Ping);
-                },
-                b"ECHO" => {
+                b"PING" => Some(RedisCommand::Ping),
+                b"ECHO" => 
                     match array_iterator.next() {
                         Some(RespDatatype::BulkString(message)) => 
-                        Some(RedisCommand::BulkString(message.to_owned())),
+                        Some(RedisCommand::BulkString(message)),
                         _ => Some(RedisCommand::NullBulkString),
-                    }
-                },
+                    },
                 b"SET" => interpret_set(array_iterator).await,
-                b"GET" => {
-                    let key = match array_iterator.next() {
-                        Some(RespDatatype::BulkString(key)) => key,
-                        _ => return make_error_command("Expected key after GET"),
-                    };
-                    match get_value(&key).await {
-                        Some(value) => Some(RedisCommand::BulkString(value)),
-                        None => Some(RedisCommand::NullBulkString),
-                    }
-                },
-                b"INFO" => {
-                    let arg = match array_iterator.next() {
-                        Some(RespDatatype::BulkString(arg)) => arg,
-                        _ => return None,
-                    };
-                    match &arg[..] {
-                        b"replication" => {
-                            let role = match get_value(b"role").await {
-                                Some(role) => role,
-                                None => return make_error_command("Error happened in the Redis. For some reason this server does not have a role.")
-                            };
-                            let master_replid = match get_value(b"master_replid").await {
-                                Some(master_replid) => master_replid,
-                                None => return make_error_command("Error happened in the Redis. For some reason this server does not have a role.")
-                            };
-                            let master_repl_offset = match get_value(b"master_repl_offset").await {
-                                Some(master_repl_offset) => master_repl_offset,
-                                None => return make_error_command("Error happened in the Redis. For some reason this server does not have a role.")
-                            };
-                            Some(RedisCommand::BulkString(
-                                format_bytes!(b"role:{}\r\nmaster_replid:{}\r\nmaster_repl_offset:{}\r\n",
-                                role, master_replid, master_repl_offset
-                            )))
-                        },
-                        arg => make_error_command(format!("Unknown argument for INFO {arg:?}")),
-                    }
-                },
+                b"GET" => interpret_get(array_iterator).await,
+                b"INFO" => interpret_info(array_iterator).await,
+                b"REPLCONF" => interpret_replconf(array_iterator).await,
                 _ => return make_error_command(format!("Unknown command received {:?}", command)),
             }
         },
         _ => return None,
+    }
+}
+
+async fn interpret_get(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
+    let key = match array_iterator.next() {
+        Some(RespDatatype::BulkString(key)) => key,
+        _ => return make_error_command("Expected key after GET"),
+    };
+    match get_value(&key).await {
+        Some(value) => Some(RedisCommand::BulkString(value)),
+        None => Some(RedisCommand::NullBulkString),
     }
 }
 
@@ -122,6 +96,39 @@ async fn interpret_set(mut array_iterator: IntoIter<RespDatatype>) -> Option<Red
     }
     if let Some(expiry) = expiry {set_value_expiry(&key, &value, expiry).await} else {set_value(&key, &value).await}; 
     return Some(RedisCommand::Ok);
+}
+
+async fn interpret_info(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
+    let arg = match array_iterator.next() {
+        Some(RespDatatype::BulkString(arg)) => arg,
+        _ => return None,
+    };
+    match &arg[..] {
+        b"replication" => {
+            let role = match get_value(b"role").await {
+                Some(role) => role,
+                None => return make_error_command("Error happened in the Redis. For some reason this server does not have a role.")
+            };
+            let master_replid = match get_value(b"master_replid").await {
+                Some(master_replid) => master_replid,
+                None => return make_error_command("Error happened in the Redis. For some reason this server does not have a role.")
+            };
+            let master_repl_offset = match get_value(b"master_repl_offset").await {
+                Some(master_repl_offset) => master_repl_offset,
+                None => return make_error_command("Error happened in the Redis. For some reason this server does not have a role.")
+            };
+            Some(RedisCommand::BulkString(
+                format_bytes!(b"role:{}\r\nmaster_replid:{}\r\nmaster_repl_offset:{}\r\n",
+                role, master_replid, master_repl_offset
+            )))
+        },
+        arg => make_error_command(format!("Unknown argument for INFO {arg:?}")),
+    }
+}
+
+#[allow(unused)]
+async fn interpret_replconf(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
+    Some(RedisCommand::Ok)
 }
 
 #[inline]
