@@ -1,7 +1,7 @@
 use bytes::BufMut;
 use format_bytes::format_bytes;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RespDatatype {
     SimpleString(String),
     SimpleError(String),
@@ -19,7 +19,10 @@ pub enum RespDatatype {
     // Push
 }
 
-// const NULL_BULK_STRING: RespDatatype = RespDatatype::BulkString(None);
+lazy_static! {  
+    pub static ref PING_COMMAND: RespDatatype = RespDatatype::Array(Some(vec![RespDatatype::BulkString(Some(b"PING".to_vec()))]));
+    pub static ref NULL_BULK_STRING: RespDatatype = RespDatatype::BulkString(None);
+}
 
 // In the future may change return type to Result, it's easier to implement Option
 pub fn deserialize(buf: Vec<u8>) -> Option<RespDatatype> {

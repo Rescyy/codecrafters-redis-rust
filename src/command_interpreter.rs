@@ -71,7 +71,7 @@ pub async fn interpret(resp_object: RespDatatype) -> Option<RedisCommand> {
                         arg => return make_error_command(format!("Unknown argument for INFO {arg:?}")),
                     }
                 },
-                _ => return None,
+                _ => return make_error_command(format!("Unknown command received {:?}", command)),
             }
         },
         _ => return None,
