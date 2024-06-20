@@ -11,6 +11,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     let mut buf = Vec::<u8>::new();
     stream.write_all(&PING_COMMAND[..]).await?;
     stream.read_buf(&mut buf).await?;
+    buf.clear();
 
     let replconf_command1 = serialize(
         &RespDatatype::Array(
@@ -22,8 +23,9 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
         )
     );
     stream.write_all(&replconf_command1).await?;
-    stream.flush().await?;
-    // stream.read_buf(&mut buf).await?;
+    stream.read_buf(&mut buf).await?;
+    buf.clear();
+    
     let replconf_command2 = serialize(
         &RespDatatype::Array(
             vec![
@@ -34,7 +36,8 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
         )
     );
     stream.write_all(&replconf_command2).await?;
-    stream.flush().await?;
-    // stream.read_buf(&mut buf).await?;
+    stream.read_buf(&mut buf).await?;
+    buf.clear();
+
     return Ok(());
 }
