@@ -10,6 +10,7 @@ pub enum RespDatatype {
     NullBulkString,
     Array(Vec<RespDatatype>),
     NullArray,
+    RDBFile(Vec<u8>),
     // Null,
     // Boolean,
     // Double,
@@ -209,7 +210,13 @@ fn serialize_recursive(bytes: &mut Vec<u8>, resp_object: &RespDatatype) {
         },
         RespDatatype::NullArray => {
             b"*-1\r\n".to_vec()
-        }
+        },
+        RespDatatype::RDBFile(contents) => {
+            format_bytes!(b"${}\r\n{}",
+                contents.len().to_string().as_bytes(),
+                &contents[..]
+            )
+        },
     };
     bytes.append(&mut serialized);
 }

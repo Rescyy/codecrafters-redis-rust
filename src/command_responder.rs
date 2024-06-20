@@ -45,7 +45,7 @@ fn formulate_response(redis_command: RedisCommand) -> Vec<Vec<u8>> {
         RedisCommand::FullResync(psync_response, rdb_file) => {
             vec![
                 serialize(&RespDatatype::SimpleString(String::from_utf8(psync_response).unwrap())),
-                rdb_file
+                serialize(&RespDatatype::RDBFile(rdb_file))
             ]
         },
     }
