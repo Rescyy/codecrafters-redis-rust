@@ -4,12 +4,15 @@ use format_bytes::format_bytes;
 use crate::resp_handler::RespDatatype;
 use crate::database::*;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum RedisCommand {
     Ping,
     Ok,
     Error(String),
+    SimpleString(Vec<u8>),
     BulkString(Vec<u8>),
+    RespDatatype(RespDatatype),
     NullBulkString,
 }
 
@@ -33,6 +36,7 @@ pub async fn interpret(resp_object: RespDatatype) -> Option<RedisCommand> {
                 b"GET" => interpret_get(array_iterator).await,
                 b"INFO" => interpret_info(array_iterator).await,
                 b"REPLCONF" => interpret_replconf(array_iterator).await,
+                b"PSYNC" => interpret_psync(array_iterator).await,
                 _ => return make_error_command(format!("Unknown command received {:?}", command)),
             }
         },
@@ -129,6 +133,23 @@ async fn interpret_info(mut array_iterator: IntoIter<RespDatatype>) -> Option<Re
 #[allow(unused)]
 async fn interpret_replconf(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
     Some(RedisCommand::Ok)
+}
+
+async fn interpret_psync(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
+    let repl_id = match array_iterator.next() {
+        Some(RespDatatype::BulkString(repl_id)) => repl_id,
+        _ => return make_error_command("No repl_id argument for PSYNC command given."),
+    };
+    let repl_offset = match array_iterator.next() {
+        Some(RespDatatype::BulkString(repl_offset)) => repl_offset,
+        _ => return make_error_command("No repl_offset argument for PSYNC command given.")
+    };
+    if &repl_id[..] == b"?" && &repl_offset[..] == b"-1" {
+        let repl_id = get_value(b"master_replid").await.unwrap();
+        let repl_offset = get_value(b"master_repl_offset").await.unwrap();
+        return Some(RedisCommand::SimpleString(format_bytes!(b"FULLRESYNC {} {}", repl_id, repl_offset)));
+    }
+    todo!();
 }
 
 #[inline]

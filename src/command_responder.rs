@@ -39,6 +39,12 @@ fn formulate_response(redis_command: RedisCommand) -> Vec<u8> {
         },
         RedisCommand::NullBulkString => {
             NULL_BULK_STRING.to_vec()
-        }
+        },
+        RedisCommand::SimpleString(message) => {
+            serialize(&RespDatatype::SimpleString(String::from_utf8(message).unwrap()))
+        },
+        RedisCommand::RespDatatype(resp_object) => {
+            serialize(&resp_object)
+        },
     }
 }
