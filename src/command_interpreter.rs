@@ -12,6 +12,7 @@ pub enum RedisCommand {
     Error(String),
     SimpleString(Vec<u8>),
     BulkString(Vec<u8>),
+    FullResync(Vec<u8>, Vec<u8>),
     RespDatatype(RespDatatype),
     NullBulkString,
 }
@@ -147,7 +148,8 @@ async fn interpret_psync(mut array_iterator: IntoIter<RespDatatype>) -> Option<R
     if &repl_id[..] == b"?" && &repl_offset[..] == b"-1" {
         let repl_id = get_value(b"master_replid").await.unwrap();
         let repl_offset = get_value(b"master_repl_offset").await.unwrap();
-        return Some(RedisCommand::SimpleString(format_bytes!(b"FULLRESYNC {} {}", repl_id, repl_offset)));
+        
+        return Some(RedisCommand::FullResync(format_bytes!(b"FULLRESYNC {} {}", repl_id, repl_offset), b"$0\r\n".to_vec()));
     }
     todo!();
 }

@@ -8,43 +8,45 @@ pub const OK_STRING: &[u8] = b"+OK\r\n";
 const NULL_BULK_STRING: &[u8] = b"$-1\r\n";
 
 pub async fn respond(stream: &mut TcpStream, redis_command: RedisCommand) {
-    let response = formulate_response(redis_command);
-    stream.write(&response)
-        .await
-        .expect("Failed to respond");
-    stream.flush().await.unwrap();
-    println!("Response: {:?}", String::from_utf8(response));
-}
-
-#[allow(dead_code)]
-pub fn respond_test(redis_command: RedisCommand) {
-    let response = formulate_response(redis_command);
-    println!("Response: {:?}", String::from_utf8(response));
+    let responses = formulate_response(redis_command);
+    for response in responses {
+        stream.write(&response)
+            .await
+            .expect("Failed to respond");
+        stream.flush().await.unwrap();
+        println!("Response: {:?}", String::from_utf8(response));
+    }
 }
 
 #[allow(unreachable_patterns)]
-fn formulate_response(redis_command: RedisCommand) -> Vec<u8> {
+fn formulate_response(redis_command: RedisCommand) -> Vec<Vec<u8>> {
     match redis_command {
         RedisCommand::Ping => {
-            PONG_STRING.to_vec()
+            vec![PONG_STRING.to_vec()]
         },
         RedisCommand::Ok => {
-            OK_STRING.to_vec()
+            vec![OK_STRING.to_vec()]
         },
         RedisCommand::BulkString(message) => {
-            serialize(&RespDatatype::BulkString(message))
+            vec![serialize(&RespDatatype::BulkString(message))]
         },
         RedisCommand::Error(message) => {
-            serialize(&RespDatatype::SimpleError(message))
+            vec![serialize(&RespDatatype::SimpleError(message))]
         },
         RedisCommand::NullBulkString => {
-            NULL_BULK_STRING.to_vec()
+            vec![NULL_BULK_STRING.to_vec()]
         },
         RedisCommand::SimpleString(message) => {
-            serialize(&RespDatatype::SimpleString(String::from_utf8(message).unwrap()))
+            vec![serialize(&RespDatatype::SimpleString(String::from_utf8(message).unwrap()))]
         },
         RedisCommand::RespDatatype(resp_object) => {
-            serialize(&resp_object)
+            vec![serialize(&resp_object)]
+        },
+        RedisCommand::FullResync(psync_response, rdb_file) => {
+            vec![
+                serialize(&RespDatatype::SimpleString(String::from_utf8(psync_response).unwrap())),
+                rdb_file
+            ]
         },
     }
 }
