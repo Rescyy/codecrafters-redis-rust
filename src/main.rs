@@ -10,6 +10,9 @@ use command_responder::*;
 mod database;
 use database::*;
 
+mod utils;
+use utils::*;
+
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::AsyncReadExt;
 use std::env;
@@ -56,6 +59,10 @@ async fn main() {
 
     set_value(b"port", port.as_bytes()).await;
     set_value(b"role", role).await;
+    if role == b"master" {
+        set_value(b"master_replid", &generate_master_replid()).await;
+        set_value(b"master_repl_offset", b"0").await;
+    }
     set_value(b"master_host", master_host.as_bytes()).await;
     set_value(b"master_port", master_port.as_bytes()).await;
 
