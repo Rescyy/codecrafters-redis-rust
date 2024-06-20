@@ -149,7 +149,7 @@ async fn interpret_psync(mut array_iterator: IntoIter<RespDatatype>) -> Option<R
         let repl_id = get_value(b"master_replid").await.unwrap();
         let repl_offset = get_value(b"master_repl_offset").await.unwrap();
         
-        return Some(RedisCommand::FullResync(format_bytes!(b"FULLRESYNC {} {}", repl_id, repl_offset), b"$0\r\n".to_vec()));
+        return Some(RedisCommand::FullResync(format_bytes!(b"FULLRESYNC {} {}", repl_id, repl_offset), b"$1\r\nh".to_vec()));
     }
     todo!();
 }
