@@ -59,7 +59,6 @@ pub async fn interpret(resp_object: RespDatatype) -> Option<RedisCommand> {
                         },
                         arg => return make_error_command(format!("Unknown argument for INFO {arg:?}")),
                     }
-                    todo!();
                 },
                 _ => return None,
             }
