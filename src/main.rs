@@ -8,7 +8,7 @@ mod command_responder;
 use command_responder::*;
 
 mod database;
-// use database::*;
+use database::*;
 
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::AsyncReadExt;
@@ -23,6 +23,8 @@ async fn main() {
     println!("Logs from your program will appear here!");
 
     let mut port = String::from("6379");
+    let role = b"master";
+
     let mut args = env::args();
     args.next();
     while let Some(flag) = args.next() {
@@ -35,9 +37,9 @@ async fn main() {
         }
     }
 
-    // Uncomment this block to pass the first stage
-    
     let listener = TcpListener::bind(format!("127.0.0.1:{port}")).await.expect("Couldn't start the server");
+    set_value(b"port", port.as_bytes()).await;
+    set_value(b"role", role).await;
 
     loop {
         let stream = listener.accept().await;

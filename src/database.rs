@@ -15,16 +15,20 @@ pub async fn get_value(key: &[u8]) -> Option<Vec<u8>> {
     }
 }
 
-pub async fn set_value(key: &[u8], value: &[u8], expiry: Option<u64>) {
+pub async fn set_value(key: &[u8], value: &[u8]) {
     let mut database = DATABASE.lock().await;
     let key = key.to_owned();
     database.insert(key.clone(), value.to_owned());
-    if let Some(expiry) = expiry {
-        tokio::spawn(async move{
-            sleep(Duration::from_millis(expiry)).await;
-            delete_value(&key).await;
-        });
-    }
+}
+
+pub async fn set_value_expiry(key: &[u8], value: &[u8], expiry: u64) {
+    let mut database = DATABASE.lock().await;
+    let key = key.to_owned();
+    database.insert(key.clone(), value.to_owned());
+    tokio::spawn(async move{
+        sleep(Duration::from_millis(expiry)).await;
+        delete_value(&key).await;
+    });
 }
 
 pub async fn delete_value(key: &[u8]) {
