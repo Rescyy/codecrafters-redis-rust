@@ -5,13 +5,14 @@ use crate::resp_handler::{serialize, RespDatatype};
 
 const PONG_STRING: &[u8] = b"+PONG\r\n";
 const OK_STRING: &[u8] = b"+OK\r\n";
+const NULL_BULK_STRING: &[u8] = b"$-1\r\n";
 
 pub async fn respond(stream: &mut TcpStream, redis_command: RedisCommand) {
     let response = formulate_response(redis_command);
-    println!("Response: {:?}", String::from_utf8(response.clone()).unwrap());
     stream.write(&response)
         .await
         .expect("Failed to respond");
+    println!("Response: {:?}", String::from_utf8(response).unwrap());
 }
 
 #[allow(dead_code)]
@@ -24,16 +25,19 @@ pub fn respond_test(redis_command: RedisCommand) {
 fn formulate_response(redis_command: RedisCommand) -> Vec<u8> {
     match redis_command {
         RedisCommand::Ping => {
-            PONG_STRING.to_owned()
+            PONG_STRING.to_vec()
         },
         RedisCommand::Ok => {
-            OK_STRING.to_owned()
+            OK_STRING.to_vec()
         },
         RedisCommand::BulkString(message) => {
-            serialize(RespDatatype::BulkString(message))
+            serialize(&RespDatatype::BulkString(message))
         },
         RedisCommand::Error(message) => {
-            serialize(RespDatatype::SimpleError(message))
+            serialize(&RespDatatype::SimpleError(message))
+        },
+        RedisCommand::NullBulkString => {
+            NULL_BULK_STRING.to_vec()
         }
     }
 }

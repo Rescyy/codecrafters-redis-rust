@@ -9,17 +9,16 @@ pub enum RedisCommand {
     Ping,
     Ok,
     Error(String),
-    BulkString(Option<Vec<u8>>),
+    BulkString(Vec<u8>),
+    NullBulkString,
 }
-
-const NULL_BULK_STRING_COMMAND: RedisCommand = RedisCommand::BulkString(None);
 
 pub async fn interpret(resp_object: RespDatatype) -> Option<RedisCommand> {
     match resp_object {
-        RespDatatype::Array(Some(array)) => {
+        RespDatatype::Array(array) => {
             let mut array_iterator = array.into_iter();
             let command = match array_iterator.next() {
-                Some(RespDatatype::BulkString(Some(bulk_string))) => bulk_string.to_ascii_uppercase(),
+                Some(RespDatatype::BulkString(bulk_string)) => bulk_string.to_ascii_uppercase(),
                 _ => return None,
             };
             match &command[..] {
@@ -28,25 +27,25 @@ pub async fn interpret(resp_object: RespDatatype) -> Option<RedisCommand> {
                 },
                 b"ECHO" => {
                     match array_iterator.next() {
-                        Some(RespDatatype::BulkString(Some(message))) => 
-                        return Some(RedisCommand::BulkString(Some(message.to_owned()))),
-                        _ => return None,
-                    };
+                        Some(RespDatatype::BulkString(message)) => 
+                        Some(RedisCommand::BulkString(message.to_owned())),
+                        _ => Some(RedisCommand::NullBulkString),
+                    }
                 },
                 b"SET" => interpret_set(array_iterator).await,
                 b"GET" => {
                     let key = match array_iterator.next() {
-                        Some(RespDatatype::BulkString(Some(key))) => key,
+                        Some(RespDatatype::BulkString(key)) => key,
                         _ => return make_error_command("Expected key after GET"),
                     };
                     match get_value(&key).await {
-                        Some(value) => Some(RedisCommand::BulkString(Some(value))),
-                        None => Some(NULL_BULK_STRING_COMMAND),
+                        Some(value) => Some(RedisCommand::BulkString(value)),
+                        None => Some(RedisCommand::NullBulkString),
                     }
                 },
                 b"INFO" => {
                     let arg = match array_iterator.next() {
-                        Some(RespDatatype::BulkString(Some(arg))) => arg,
+                        Some(RespDatatype::BulkString(arg)) => arg,
                         _ => return None,
                     };
                     match &arg[..] {
@@ -63,12 +62,12 @@ pub async fn interpret(resp_object: RespDatatype) -> Option<RedisCommand> {
                                 Some(master_repl_offset) => master_repl_offset,
                                 None => return make_error_command("Error happened in the Redis. For some reason this server does not have a role.")
                             };
-                            return Some(RedisCommand::BulkString(Some(
+                            Some(RedisCommand::BulkString(
                                 format_bytes!(b"role:{}\r\nmaster_replid:{}\r\nmaster_repl_offset:{}\r\n",
                                 role, master_replid, master_repl_offset
-                            ))))
+                            )))
                         },
-                        arg => return make_error_command(format!("Unknown argument for INFO {arg:?}")),
+                        arg => make_error_command(format!("Unknown argument for INFO {arg:?}")),
                     }
                 },
                 _ => return make_error_command(format!("Unknown command received {:?}", command)),
@@ -80,17 +79,17 @@ pub async fn interpret(resp_object: RespDatatype) -> Option<RedisCommand> {
 
 async fn interpret_set(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
     let key = match array_iterator.next() {
-        Some(RespDatatype::BulkString(Some(key))) => key,
+        Some(RespDatatype::BulkString(key)) => key,
         _ => return None,
     };
     let value = match array_iterator.next() {
-        Some(RespDatatype::BulkString(Some(value))) => value,
+        Some(RespDatatype::BulkString(value)) => value,
         _ => return None,
     };
     let mut expiry: Option<u64> = None;
     while let Some(argument) = array_iterator.next() {
         match argument {
-            RespDatatype::BulkString(Some(argument)) => {
+            RespDatatype::BulkString(argument) => {
                 match &argument.to_ascii_uppercase()[..] {
                     b"PX" => {
                         expiry = match array_iterator.next() {
@@ -101,7 +100,7 @@ async fn interpret_set(mut array_iterator: IntoIter<RespDatatype>) -> Option<Red
                                     return make_error_command("Integer argument for PX cannott be negative");
                                 }
                             },
-                            Some(RespDatatype::BulkString(Some(bulk_string))) => {
+                            Some(RespDatatype::BulkString(bulk_string)) => {
                                 let bulk_string = match String::from_utf8(bulk_string) {
                                     Ok(bulk_string) => bulk_string,
                                     Err(_) => return make_error_command("Invalid argument given for PX")

@@ -6,8 +6,10 @@ pub enum RespDatatype {
     SimpleString(String),
     SimpleError(String),
     Integer(i64),
-    BulkString(Option<Vec<u8>>),
-    Array(Option<Vec<RespDatatype>>),
+    BulkString(Vec<u8>),
+    NullBulkString,
+    Array(Vec<RespDatatype>),
+    NullArray,
     // Null,
     // Boolean,
     // Double,
@@ -17,11 +19,6 @@ pub enum RespDatatype {
     // Map,
     // Set,
     // Push
-}
-
-lazy_static! {  
-    pub static ref PING_COMMAND: RespDatatype = RespDatatype::Array(Some(vec![RespDatatype::BulkString(Some(b"PING".to_vec()))]));
-    pub static ref NULL_BULK_STRING: RespDatatype = RespDatatype::BulkString(None);
 }
 
 // In the future may change return type to Result, it's easier to implement Option
@@ -111,7 +108,7 @@ fn deserialize_recursive(mut i: usize, splice_array: &Vec<&[u8]>) -> Option<(Res
                 }
             };
             if bulk_length < 0 {
-                return Some((RespDatatype::BulkString(None), i+1));
+                return Some((RespDatatype::NullBulkString, i+1));
             }
             i += 1;
             let bulk_length: usize = bulk_length.try_into().unwrap();
@@ -129,7 +126,7 @@ fn deserialize_recursive(mut i: usize, splice_array: &Vec<&[u8]>) -> Option<(Res
                 }
             }
             if bulk_string.len() == bulk_length {
-                return Some((RespDatatype::BulkString(Some(bulk_string)), i+1));
+                return Some((RespDatatype::BulkString(bulk_string), i+1));
             }
         },
         b'*' => {
@@ -152,7 +149,7 @@ fn deserialize_recursive(mut i: usize, splice_array: &Vec<&[u8]>) -> Option<(Res
                 }
             };
             if array_length < 0 {
-                return Some((RespDatatype::Array(None), i+1));
+                return Some((RespDatatype::NullArray, i+1));
             }
             i += 1;
             let array_length: usize = array_length.try_into().unwrap();
@@ -166,7 +163,7 @@ fn deserialize_recursive(mut i: usize, splice_array: &Vec<&[u8]>) -> Option<(Res
                     None => return None,
                 }
             }
-            return Some((RespDatatype::Array(Some(array)), i));
+            return Some((RespDatatype::Array(array), i));
         },
         _ => ()
     }
@@ -174,13 +171,13 @@ fn deserialize_recursive(mut i: usize, splice_array: &Vec<&[u8]>) -> Option<(Res
     return None;
 }
 
-pub fn serialize(resp_object: RespDatatype) -> Vec<u8> {
+pub fn serialize(resp_object: &RespDatatype) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::new();
     serialize_recursive(&mut bytes, resp_object);
     return bytes;
 }
 
-fn serialize_recursive(bytes: &mut Vec<u8>, resp_object: RespDatatype) {
+fn serialize_recursive(bytes: &mut Vec<u8>, resp_object: &RespDatatype) {
     let mut serialized = match resp_object {
         RespDatatype::SimpleString(string) => {
             format_bytes!(b"+{}\r\n", string.as_bytes())
@@ -192,29 +189,26 @@ fn serialize_recursive(bytes: &mut Vec<u8>, resp_object: RespDatatype) {
             format_bytes!(b":{}\r\n", integer.to_string().as_bytes())
         },
         RespDatatype::BulkString(bulk_string) => {
-            match bulk_string {
-                Some(bulk_string) => 
-                format_bytes!(b"${}\r\n{}\r\n", 
-                    bulk_string.len().to_string().as_bytes(), 
-                    &bulk_string[..]
-                ),
-                None => b"$-1\r\n".to_vec(),
-            }
+            format_bytes!(b"${}\r\n{}\r\n", 
+                bulk_string.len().to_string().as_bytes(), 
+                &bulk_string[..]
+            )
+        },
+        RespDatatype::NullBulkString => {
+            b"$-1\r\n".to_vec()
         },
         RespDatatype::Array(array) => {
-            match array {
-                Some(array) => {
-                    let array_len = array.len();
-                    let mut array_bytes = format_bytes!(b"*{}\r\n",
-                        array_len.to_string().as_bytes()
-                    );
-                    for resp_object in array.into_iter() {
-                        serialize_recursive(&mut array_bytes, resp_object);
-                    }
-                    array_bytes
-                },
-                None => b"*-1\r\n".to_vec(),
+            let array_len = array.len();
+            let mut array_bytes = format_bytes!(b"*{}\r\n",
+                array_len.to_string().as_bytes()
+            );
+            for resp_object in array.into_iter() {
+                serialize_recursive(&mut array_bytes, resp_object);
             }
+            array_bytes
+        },
+        RespDatatype::NullArray => {
+            b"*-1\r\n".to_vec()
         }
     };
     bytes.append(&mut serialized);

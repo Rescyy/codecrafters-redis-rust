@@ -53,7 +53,7 @@ async fn main() {
                 if master_args.next() != None {
                     panic!("{}", INCORRECT_FORMAT_REPLICAOF);
                 }
-                send_handshake(&master_host, &master_port).await.expect("Handshake failed");
+                send_handshake(&master_host, &master_port, &port).await.expect("Handshake failed");
             },
             flag => panic!("Unknown flag: \"{flag}\""),
         }
