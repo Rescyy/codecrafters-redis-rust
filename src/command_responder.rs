@@ -12,7 +12,8 @@ pub async fn respond(stream: &mut TcpStream, redis_command: RedisCommand) {
     stream.write(&response)
         .await
         .expect("Failed to respond");
-    println!("Response: {:?}", String::from_utf8(response).unwrap());
+    stream.flush().await.unwrap();
+    println!("Response: {:?}", &response[..]);
 }
 
 #[allow(dead_code)]
