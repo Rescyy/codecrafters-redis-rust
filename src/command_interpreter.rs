@@ -55,7 +55,7 @@ pub async fn interpret(resp_object: RespDatatype) -> Option<RedisCommand> {
                                 Some(role) => role,
                                 None => return make_error_command("Error happened in the Redis. For some reason this server does not have a role.")
                             };
-                            return Some(RedisCommand::BulkString(Some(format_bytes!(b"role{}", &role[..]))))
+                            return Some(RedisCommand::BulkString(Some(format_bytes!(b"role:{}", &role[..]))))
                         },
                         arg => return make_error_command(format!("Unknown argument for INFO {arg:?}")),
                     }
