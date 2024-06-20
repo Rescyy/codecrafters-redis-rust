@@ -3,8 +3,8 @@ use tokio::net::TcpStream;
 use tokio::io::AsyncWriteExt;
 use crate::resp_handler::{serialize, RespDatatype};
 
-const PONG_STRING: &[u8] = b"+PONG\r\n";
-const OK_STRING: &[u8] = b"+OK\r\n";
+pub const PONG_STRING: &[u8] = b"+PONG\r\n";
+pub const OK_STRING: &[u8] = b"+OK\r\n";
 const NULL_BULK_STRING: &[u8] = b"$-1\r\n";
 
 pub async fn respond(stream: &mut TcpStream, redis_command: RedisCommand) {
