@@ -29,10 +29,20 @@ impl SlaveIdentifier {
 
     pub fn is_slave(&mut self, redis_command: &RedisCommand) -> bool {
         match (redis_command, &self.slave_state) {
-            (RedisCommand::Pong, SlaveState::Null) => self.slave_state = SlaveState::Ponged,
-            (RedisCommand::ReplconfOk1, SlaveState::Ponged) => self.slave_state = SlaveState::Replconf1,
-            (RedisCommand::ReplconfOk2, SlaveState::Replconf1) => self.slave_state = SlaveState::Replconf2,
+            (RedisCommand::Pong, SlaveState::Null) => {
+                println!("Slave Ponged");
+                self.slave_state = SlaveState::Ponged
+            },
+            (RedisCommand::ReplconfOk1, SlaveState::Ponged) => {
+                println!("Slave Replconf1");
+                self.slave_state = SlaveState::Replconf1
+            },
+            (RedisCommand::ReplconfOk2, SlaveState::Replconf1) => {
+                println!("Slave Replconf2");
+                self.slave_state = SlaveState::Replconf2
+            },
             (RedisCommand::FullResync(_,_), SlaveState::Replconf2) => {
+                println!("Slave Full Synced");
                 self.slave_state = SlaveState::FullSynced;
                 return true
             },
