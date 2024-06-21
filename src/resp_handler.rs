@@ -23,7 +23,7 @@ pub enum RespDatatype {
 }
 
 // In the future may change return type to Result, it's easier to implement Option
-pub fn deserialize(buf: Vec<u8>) -> Option<RespDatatype> {
+pub fn deserialize(buf: &Vec<u8>) -> Option<RespDatatype> {
     
     let mut splice_array: Vec<&[u8]> = Vec::new();
     

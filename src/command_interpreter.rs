@@ -2,22 +2,24 @@ use std::vec::IntoIter;
 use format_bytes::format_bytes;
 
 use crate::resp_handler::RespDatatype;
-use crate::database::*;
+use crate::{database::*, push_to_slaves, SlaveTask};
 
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum RedisCommand {
-    Ping,
+    Pong,
     Ok,
     Error(String),
     SimpleString(Vec<u8>),
     BulkString(Vec<u8>),
     FullResync(Vec<u8>, Vec<u8>),
+    ReplconfOk1,
+    ReplconfOk2,
     RespDatatype(RespDatatype),
     NullBulkString,
 }
 
-pub async fn interpret(resp_object: RespDatatype) -> Option<RedisCommand> {
+pub async fn interpret(resp_object: RespDatatype, buf: &Vec<u8>) -> Option<RedisCommand> {
     match resp_object {
         RespDatatype::Array(array) => {
             let mut array_iterator = array.into_iter();
@@ -26,14 +28,20 @@ pub async fn interpret(resp_object: RespDatatype) -> Option<RedisCommand> {
                 _ => return None,
             };
             match &command[..] {
-                b"PING" => Some(RedisCommand::Ping),
+                b"PING" => Some(RedisCommand::Pong),
                 b"ECHO" => 
                     match array_iterator.next() {
                         Some(RespDatatype::BulkString(message)) => 
                         Some(RedisCommand::BulkString(message)),
                         _ => Some(RedisCommand::NullBulkString),
                     },
-                b"SET" => interpret_set(array_iterator).await,
+                b"SET" => {
+                    let command = interpret_set(array_iterator).await;
+                    if let Some(_) = command {
+                        push_to_slaves(SlaveTask::new(buf.clone())).await;
+                    }
+                    command
+                },
                 b"GET" => interpret_get(array_iterator).await,
                 b"INFO" => interpret_info(array_iterator).await,
                 b"REPLCONF" => interpret_replconf(array_iterator).await,

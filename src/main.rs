@@ -16,6 +16,9 @@ use utils::*;
 mod replica_handshake;
 use replica_handshake::*;
 
+mod slaves;
+use slaves::*;
+
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::AsyncReadExt;
 use std::env;
@@ -70,6 +73,8 @@ async fn main() {
     set_value(b"master_host", master_host.as_bytes()).await;
     set_value(b"master_port", master_port.as_bytes()).await;
 
+    start_slaves();
+
     loop {
         let stream = listener.accept().await;
         
@@ -86,6 +91,7 @@ async fn main() {
 
 async fn handle_client(mut stream: TcpStream) {
     println!("Accepted new connection! Handling client");
+    let mut slave_identifier: SlaveIdentifier = SlaveIdentifier::init();
     loop {
         let mut buf = Vec::<u8>::new();
         println!("Reading bytes");
@@ -96,16 +102,24 @@ async fn handle_client(mut stream: TcpStream) {
         }
     
         println!("Deserializing");
-        let resp_object = deserialize(buf)
+        let resp_object = deserialize(&buf)
         .expect("Failed to deserialize RESP object");
     
         println!("Interpreting");
-        let redis_command = interpret(resp_object)
+        let redis_command = interpret(resp_object, &buf)
         .await
         .expect("Failed to interpret Redis command");
     
         println!("Responding");
-        respond(&mut stream, redis_command).await;
+        respond(&mut stream, &redis_command).await;
+
+        if slave_identifier.is_slave(&redis_command) {
+            break;
+        }
+    }
+    
+    if slave_identifier.is_synced() {
+        handle_slave(stream).await;
     }
 }
 
