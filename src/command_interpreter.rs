@@ -141,7 +141,39 @@ async fn interpret_info(mut array_iterator: IntoIter<RespDatatype>) -> Option<Re
 
 #[allow(unused)]
 async fn interpret_replconf(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
-    Some(RedisCommand::Ok)
+    while let Some(argument) = array_iterator.next() {
+        match argument {
+            RespDatatype::BulkString(argument) => {
+                match &argument[..] {
+                    b"listening-port" => {
+                        let port = match array_iterator.next() {
+                            Some(RespDatatype::BulkString(port)) => {
+                                let port = match String::from_utf8(port) {
+                                    Ok(port) => port,
+                                    Err(_) => return make_error_command("Invalid argument for port"),
+                                };
+                                match port.parse::<u16>() {
+                                    Ok(port) => if port == 0 {return make_error_command("Port cannot be 0")},
+                                    Err(_) => return make_error_command(format!("Port cannot be {port}. Choose 1-65535")),
+                                }
+                            },
+                            _ => return make_error_command("Invalid argument for port"),
+                        };
+                        return Some(RedisCommand::ReplconfOk1);
+                    },
+                    b"capa" => {
+                        let capa = match array_iterator.next() {
+                            _ => (),
+                        };
+                        return Some(RedisCommand::ReplconfOk2);
+                    }
+                    _ => (),
+                }
+            }
+            _ => (),
+        }
+    }
+    todo!()
 }
 
 async fn interpret_psync(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
