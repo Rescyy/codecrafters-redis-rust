@@ -156,6 +156,7 @@ async fn interpret_replconf(mut array_iterator: IntoIter<RespDatatype>) -> Optio
                                     Ok(port) => if port == 0 {return make_error_command("Port cannot be 0")},
                                     Err(_) => return make_error_command(format!("Port cannot be {port}. Choose 1-65535")),
                                 }
+                                port
                             },
                             _ => return make_error_command("Invalid argument for port"),
                         };
