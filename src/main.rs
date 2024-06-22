@@ -56,8 +56,7 @@ async fn main() {
                 if master_args.next() != None {
                     panic!("{}", INCORRECT_FORMAT_REPLICAOF);
                 }
-                let master_stream = send_handshake(&master_host, &master_port, &port).await.expect("Handshake failed");
-                tokio::spawn(async move {handle_client(master_stream).await});
+                send_handshake(&master_host, &master_port, &port).await.expect("Handshake failed");
             },
             flag => panic!("Unknown flag: \"{flag}\""),
         }
@@ -73,21 +72,20 @@ async fn main() {
         set_value(b"master_replid", &generate_master_replid()).await;
         set_value(b"master_repl_offset", b"0").await;
         start_slaves();
-        
-            loop {
-                let stream = listener.accept().await;
-                
-                match stream {
-                    Ok((stream, _)) => {
-                        tokio::spawn(async move {
-                            handle_client(stream).await
-                        });
-                    }
-                    Err(_) => ()
-                }
-            }
-        }
+    }
 
+    loop {
+        let stream = listener.accept().await;
+        
+        match stream {
+            Ok((stream, _)) => {
+                tokio::spawn(async move {
+                    handle_client(stream).await
+                });
+            }
+            Err(_) => ()
+        }
+    }
 }
 
 async fn handle_client(mut stream: TcpStream) {

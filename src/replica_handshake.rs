@@ -7,7 +7,7 @@ lazy_static! {
     static ref PING_COMMAND: Vec<u8> = serialize(&RespDatatype::Array(vec![RespDatatype::BulkString(b"PING".to_vec())]));
 }
 
-pub async fn send_handshake(master_host: &String, master_port: &String, slave_port: &String) -> Result<TcpStream, Box<dyn std::error::Error>> {
+pub async fn send_handshake(master_host: &String, master_port: &String, slave_port: &String) -> Result<(), Box<dyn std::error::Error>> {
     let mut stream = TcpStream::connect(format!("{master_host}:{master_port}")).await?;
     let mut buf = Vec::<u8>::new();
     stream.write_all(&PING_COMMAND[..]).await?;
@@ -76,5 +76,31 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
 
     buf.clear();
 
-    return Ok(stream);
+    tokio::spawn(async move {handle_master(stream).await});
+
+    return Ok(());
+}
+
+async fn handle_master(mut stream: TcpStream) {
+    println!("Listening to master commands");
+    loop {
+        let mut buf = Vec::<u8>::new();
+        println!("Reading bytes");
+        let read_bytes = stream.read_buf(&mut buf).await.expect("Couldn't read bytes");
+        if read_bytes == 0 {
+            println!("No bytes received");
+            return;
+        }
+    
+        println!("Deserializing");
+        let resp_object = deserialize(&buf)
+        .expect("Failed to deserialize RESP object");
+    
+        println!("Interpreting");
+        let redis_command = interpret(resp_object, &buf)
+        .await
+        .expect("Failed to interpret Redis command");
+        
+        drop(redis_command);
+    }
 }
