@@ -67,9 +67,9 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     stream.write_all(&psync_command).await?;
     stream.read_buf(&mut buf).await?;
 
-    let resp_object = match deserialize(&buf) {
+    unsafe{let resp_object = match deserialize(&buf) {
         Some(resp_object) => resp_object,
-        None => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC")))
+        None => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC: {:?}", String::from_utf8_unchecked(buf.clone()))))
     };
     
     match interpret(resp_object, &buf).await {
@@ -89,7 +89,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     buf.clear();
 
     tokio::spawn(async move {handle_master(stream).await});
-
+}
     return Ok(());
 }
 
