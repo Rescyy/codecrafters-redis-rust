@@ -69,7 +69,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
 
     let resp_object = match deserialize(&buf) {
         Some(resp_object) => resp_object,
-        None => return Err(Box::from(anyhow!("Invalid response to PSYNC")))
+        None => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC")))
     };
     
     match interpret(resp_object, &buf).await {
@@ -77,7 +77,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
             set_value(b"master_replid", &master_replid).await;
             set_value(b"master_repl_offset", &master_repl_offset).await;
         },
-        _ => return Err(Box::from(anyhow!("Invalid response to PSYNC"))),
+        _ => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC"))),
     };
 
     buf.clear();
@@ -104,7 +104,6 @@ async fn handle_master(mut stream: TcpStream) {
             return;
         }
     
-        println!("{:?}", &buf[..]);
         println!("Deserializing");
         let resp_object = deserialize(&buf)
         .expect("Failed to deserialize RESP object");
