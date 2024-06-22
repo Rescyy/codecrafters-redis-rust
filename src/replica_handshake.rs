@@ -116,11 +116,11 @@ async fn handle_master(mut stream: TcpStream) {
 async fn read_rdb(stream: &mut TcpStream, buf: &mut Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
     let mut index = 0;
     // let mut state = 0; // 0-looking for $, 1-looking for number, 2-looking for \r\n, 3-looking for text
-    let box_error = Err(Box::from(anyhow!("Invalid RDB File")));
+    // let box_error = Err(Box::from(anyhow!("Invalid RDB File")));
     loop {
         match buf.get(index) {
             Some(&b'$') => {index += 1; break},
-            Some(_) => return box_error,
+            Some(_) => return Err(Box::from(anyhow!("Invalid RDB File1"))),
             None => {stream.read_buf(buf).await?;}
         }
     };
@@ -139,7 +139,7 @@ async fn read_rdb(stream: &mut TcpStream, buf: &mut Vec<u8>) -> Result<(), Box<d
     stream.read_buf(buf).await?;
     match buf.get(index) {
         Some(&b'\n') => index += 1,
-        Some(_) => return box_error,
+        Some(_) => return Err(Box::from(anyhow!("Invalid RDB File2"))),
         None => {stream.read_buf(buf).await?;},
     }
     if buf.len() == number+index {
