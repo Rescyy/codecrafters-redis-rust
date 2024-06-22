@@ -105,14 +105,14 @@ async fn handle_master(mut stream: TcpStream) {
         }
     
         println!("Deserializing");
-        let resp_object = deserialize(&buf)
-        .expect(&format!("Failed to deserialize RESP object {:#?}", &buf[..]));
+        unsafe {let resp_object = deserialize(&buf)
+        .expect(&format!("Failed to deserialize RESP object {:?}", String::from_utf8_unchecked(buf.clone())));
     
         println!("Interpreting");
         let redis_command = interpret(resp_object, &buf)
         .await
         .expect("Failed to interpret Redis command");
         
-        drop(redis_command);
+        drop(redis_command);}
     }
 }
