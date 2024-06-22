@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream};
 
-use crate::{deserialize, interpret, serialize, RespDatatype, OK_STRING, PONG_STRING};
+use crate::{deserialize, interpret, serialize, set_value, RedisCommand, RespDatatype, OK_STRING, PONG_STRING};
 
 lazy_static! {  
     static ref PING_COMMAND: Vec<u8> = serialize(&RespDatatype::Array(vec![RespDatatype::BulkString(b"PING".to_vec())]));
@@ -72,7 +72,19 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
         None => return Err(Box::from(anyhow!("Invalid response to PSYNC")))
     };
     
-    interpret(resp_object, &buf).await;
+    match interpret(resp_object, &buf).await {
+        Some(RedisCommand::FullResync(master_replid, master_repl_offset)) => {
+            set_value(b"master_replid", &master_replid).await;
+            set_value(b"master_repl_offset", &master_repl_offset).await;
+        },
+        _ => return Err(Box::from(anyhow!("Invalid response to PSYNC"))),
+    };
+
+    buf.clear();
+
+    stream.read_buf(&mut buf).await?;
+
+    // handle RDB file somehow
 
     buf.clear();
 
