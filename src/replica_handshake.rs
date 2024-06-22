@@ -77,7 +77,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
             set_value(b"master_replid", &master_replid).await;
             set_value(b"master_repl_offset", &master_repl_offset).await;
         },
-        _ => return Err(Box::from(anyhow!("Invalid response to PSYNC"))),
+        _ => return Err(Box::from(anyhow!("Invalid response to PSYNC2"))),
     };
 
     buf.clear();
