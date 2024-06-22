@@ -1,3 +1,4 @@
+use std::str::Split;
 use std::vec::IntoIter;
 use format_bytes::format_bytes;
 
@@ -46,8 +47,16 @@ pub async fn interpret(resp_object: RespDatatype, buf: &Vec<u8>) -> Option<Redis
                 b"INFO" => interpret_info(array_iterator).await,
                 b"REPLCONF" => interpret_replconf(array_iterator).await,
                 b"PSYNC" => interpret_psync(array_iterator).await,
-                b"FULLRESYNC" => interpret_fullresync(array_iterator).await,
+                // b"FULLRESYNC" => interpret_fullresync(array_iterator).await,
                 _ => return make_error_command(format!("Unknown command received {:?}", command)),
+            }
+        },
+        RespDatatype::SimpleString(string) => {
+            let mut split: Split<&str> = string.trim().split(" ");
+            match split.next() {
+                Some("FULLRESYNC") => interpret_fullresync(split).await,
+                Some(command) => make_error_command(format!("Unknown command received: {:?}", command)),
+                _ => make_error_command(format!("Unknown command received.d"),)
             }
         },
         _ => return None,
@@ -197,11 +206,11 @@ async fn interpret_psync(mut array_iterator: IntoIter<RespDatatype>) -> Option<R
     todo!();
 }
 
-async fn interpret_fullresync(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
+async fn interpret_fullresync<'a>(mut array_iterator: Split<'_, &str>) -> Option<RedisCommand> {
     let master_replid = match array_iterator.next() {
-        Some(RespDatatype::BulkString(master_replid)) => {
-            if is_valid_master_replid(&master_replid[..]) {
-                master_replid
+        Some(master_replid) => {
+            if is_valid_master_replid(master_replid.as_bytes()) {
+                master_replid.as_bytes().to_vec()
             } else {
                 return make_error_command("Invalid master replid")
             }
@@ -209,11 +218,7 @@ async fn interpret_fullresync(mut array_iterator: IntoIter<RespDatatype>) -> Opt
         _ => return make_error_command("Invalid master replid"),
     };
     let master_repl_offset = match array_iterator.next() {
-        Some(RespDatatype::BulkString(master_repl_offset)) => {
-            let master_repl_offset = match String::from_utf8(master_repl_offset) {
-                Ok(master_repl_offset) => master_repl_offset,
-                Err(_) => return make_error_command("Invalid master repl offset"),
-            };
+        Some(master_repl_offset) => {
             match master_repl_offset.parse::<u64>() {
                 Ok(master_repl_offset) => master_repl_offset,
                 Err(_) => return make_error_command("Invalid master repl offset"),
