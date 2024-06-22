@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use bytes::BufMut;
 use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream};
 
 use crate::{deserialize, interpret, serialize, set_value, show, RedisCommand, RespDatatype, OK_STRING, PONG_STRING};
@@ -80,13 +81,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
         _ => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC: {}", show(&collected[..])))),
     };
 
-    buf.clear();
-
-    stream.read_buf(&mut buf).await?;
-
-    // handle RDB file somehow
-
-    buf.clear();
+    read_rdb(&mut stream, &mut buf).await?;
 
     tokio::spawn(async move {handle_master(stream).await});
 
@@ -118,6 +113,48 @@ async fn handle_master(mut stream: TcpStream) {
     }
 }
 
-async fn read_rdb(stream: &mut TcpStream, buf: &mut Vec<u8>) -> Result<(), String> {
-    todo!();
+async fn read_rdb(stream: &mut TcpStream, buf: &mut Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    let mut index = 0;
+    // let mut state = 0; // 0-looking for $, 1-looking for number, 2-looking for \r\n, 3-looking for text
+    let box_error = Err(Box::from(anyhow!("Invalid RDB File")));
+    loop {
+        match buf.get(index) {
+            Some(&b'$') => {index += 1; break},
+            Some(_) => return box_error,
+            None => {stream.read_buf(buf).await?;}
+        }
+    };
+    let number;
+    loop {
+        match buf.get(index) {
+            Some(&b'\r') => {
+                number = String::from_utf8(buf[1..index].to_vec())?.parse::<usize>()?;
+                index += 1;
+                break;
+            },
+            Some(_) => index += 1,
+            None => {stream.read_buf(buf).await?;}
+        }
+    };
+    stream.read_buf(buf).await?;
+    match buf.get(index) {
+        Some(&b'\n') => index += 1,
+        Some(_) => return box_error,
+        None => {stream.read_buf(buf).await?;},
+    }
+    if buf.len() == number+index {
+        buf.clear();
+    } else if buf.len() > number+index {
+        let temp_buf = buf[index+number..].to_vec();
+        buf.clear();
+        buf.put(&temp_buf[..])
+    } else {
+        while buf.len() < number+index {
+            stream.read_buf(buf).await?;
+        }
+        let temp_buf = buf[index+number..].to_vec();
+        buf.clear();
+        buf.put(&temp_buf[..])
+    }
+    return Ok(())
 }
