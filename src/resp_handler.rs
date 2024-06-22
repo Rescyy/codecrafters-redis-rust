@@ -69,7 +69,7 @@ pub fn deserialize(buf: &mut Vec<u8>) -> Result<(RespDatatype, Vec<u8>), String>
     for i in 0..buf.len()-1 {
         if &buf[i..i+2] == b"\r\n" {
             splice_array.push(&buf[last_split..i]);
-            splice_indeces.push(i);
+            splice_indeces.push(i+2);
             last_split = i+2;
         }
     }
