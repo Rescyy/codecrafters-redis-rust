@@ -99,6 +99,8 @@ async fn handle_master(mut stream: TcpStream) {
         if read_bytes == 0 {
             println!("No bytes received");
             return;
+        } else {
+            println!("{} bytes received", read_bytes);
         }
     
         println!("Deserializing");
