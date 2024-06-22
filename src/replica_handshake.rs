@@ -1,3 +1,5 @@
+use std::ascii::escape_default;
+
 use anyhow::anyhow;
 use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream};
 
@@ -67,9 +69,9 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     stream.write_all(&psync_command).await?;
     stream.read_buf(&mut buf).await?;
 
-    unsafe{let resp_object = match deserialize(&buf) {
+    let resp_object = match deserialize(&buf) {
         Some(resp_object) => resp_object,
-        None => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC: {:?}", String::from_utf8_unchecked(buf.clone()))))
+        None => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC: {}", show(&buf[..]))))
     };
     
     match interpret(resp_object, &buf).await {
@@ -77,7 +79,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
             set_value(b"master_replid", &master_replid).await;
             set_value(b"master_repl_offset", &master_repl_offset).await;
         },
-        _ => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC"))),
+        _ => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC: {}", show(&buf[..])))),
     };
 
     buf.clear();
@@ -89,7 +91,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     buf.clear();
 
     tokio::spawn(async move {handle_master(stream).await});
-}
+
     return Ok(());
 }
 
@@ -115,4 +117,13 @@ async fn handle_master(mut stream: TcpStream) {
         
         drop(redis_command);}
     }
+}
+
+fn show(bs: &[u8]) -> String {
+    let mut visible = String::new();
+    for &b in bs {
+        let part: Vec<u8> = escape_default(b).collect();
+        visible.push_str(std::str::from_utf8(&part).unwrap());
+    }
+    visible
 }
