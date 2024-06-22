@@ -93,11 +93,13 @@ async fn handle_client(mut stream: TcpStream) {
     let mut slave_identifier: SlaveIdentifier = SlaveIdentifier::init();
     let mut buf = Vec::<u8>::new();
     loop {
-        println!("Reading bytes");
+        print!("Reading bytes: ");
         let read_bytes = stream.read_buf(&mut buf).await.expect("Couldn't read bytes");
         if read_bytes == 0 {
             println!("No bytes received");
             return;
+        } else {
+            println!("{} bytes received", read_bytes);
         }
     
         println!("Deserializing");
