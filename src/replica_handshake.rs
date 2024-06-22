@@ -95,7 +95,7 @@ async fn handle_master(mut stream: TcpStream) {
         let mut buf = Vec::<u8>::new();
         println!("Reading bytes");
         let read_bytes = stream.read_buf(&mut buf).await.expect("Couldn't read bytes");
-        println!("Current buffer: {}", show(&buf[..]));
+        // println!("Current buffer: {}", show(&buf[..]));
         if read_bytes == 0 {
             println!("No bytes received");
             return;
@@ -103,9 +103,11 @@ async fn handle_master(mut stream: TcpStream) {
             println!("{} bytes received", read_bytes);
         }
     
+        println!("Current buffer: {}", show(&buf[..]));
         println!("Deserializing");
         let (resp_object, collected) = deserialize(&mut buf)
         .expect("Failed to deserialize RESP object");
+        println!("Current buffer: {}", show(&buf[..]));
 
         println!("Interpreting");
         let redis_command = interpret(resp_object, &collected)
