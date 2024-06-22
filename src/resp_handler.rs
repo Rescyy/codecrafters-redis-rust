@@ -77,7 +77,7 @@ pub fn deserialize(buf: &mut Vec<u8>) -> Result<(RespDatatype, Vec<u8>), String>
     return match deserialize_recursive(0, &splice_array) {
         Some((resp_object, i)) =>  {
             let temp_buf = buf.clone();
-            let collected = match splice_indeces.get(i) {
+            let collected = match splice_indeces.get(i-1) {
                 Some(i) => if buf.len() >= *i {
                     buf.clear();
                     buf.put(&temp_buf[*i..]);
