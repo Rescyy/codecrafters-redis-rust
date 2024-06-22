@@ -106,7 +106,7 @@ async fn handle_master(mut stream: TcpStream) {
     
         println!("Deserializing");
         let resp_object = deserialize(&buf)
-        .expect("Failed to deserialize RESP object");
+        .expect(&format!("Failed to deserialize RESP object {:#?}", &buf[..]));
     
         println!("Interpreting");
         let redis_command = interpret(resp_object, &buf)
