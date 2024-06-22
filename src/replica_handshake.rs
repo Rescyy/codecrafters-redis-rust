@@ -1,9 +1,7 @@
-use std::ascii::escape_default;
-
 use anyhow::anyhow;
 use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream};
 
-use crate::{deserialize, interpret, serialize, set_value, RedisCommand, RespDatatype, OK_STRING, PONG_STRING};
+use crate::{deserialize, interpret, serialize, set_value, show, RedisCommand, RespDatatype, OK_STRING, PONG_STRING};
 
 lazy_static! {  
     static ref PING_COMMAND: Vec<u8> = serialize(&RespDatatype::Array(vec![RespDatatype::BulkString(b"PING".to_vec())]));
@@ -69,17 +67,17 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     stream.write_all(&psync_command).await?;
     stream.read_buf(&mut buf).await?;
 
-    let resp_object = match deserialize(&buf) {
-        Some(resp_object) => resp_object,
-        None => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC: {}", show(&buf[..]))))
+    let (resp_object, collected) = match deserialize(&mut buf) {
+        Ok(result) => result,
+        Err(err) => return Err(Box::from(anyhow!(err)))
     };
-    
-    match interpret(resp_object, &buf).await {
+
+    match interpret(resp_object, &collected).await {
         Some(RedisCommand::FullResync(master_replid, master_repl_offset)) => {
             set_value(b"master_replid", &master_replid).await;
             set_value(b"master_repl_offset", &master_repl_offset).await;
         },
-        _ => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC: {}", show(&buf[..])))),
+        _ => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC: {}", show(&collected[..])))),
     };
 
     buf.clear();
@@ -107,23 +105,14 @@ async fn handle_master(mut stream: TcpStream) {
         }
     
         println!("Deserializing");
-        unsafe {let resp_object = deserialize(&buf)
-        .expect(&format!("Failed to deserialize RESP object {:?}", String::from_utf8_unchecked(buf.clone())));
-    
+        let (resp_object, collected) = deserialize(&mut buf)
+        .expect("Failed to deserialize RESP object");
+
         println!("Interpreting");
-        let redis_command = interpret(resp_object, &buf)
+        let redis_command = interpret(resp_object, &collected)
         .await
         .expect("Failed to interpret Redis command");
         
-        drop(redis_command);}
+        drop(redis_command);
     }
-}
-
-fn show(bs: &[u8]) -> String {
-    let mut visible = String::new();
-    for &b in bs {
-        let part: Vec<u8> = escape_default(b).collect();
-        visible.push_str(std::str::from_utf8(&part).unwrap());
-    }
-    visible
 }

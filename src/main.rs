@@ -91,8 +91,8 @@ async fn main() {
 async fn handle_client(mut stream: TcpStream) {
     println!("Accepted new connection! Handling client");
     let mut slave_identifier: SlaveIdentifier = SlaveIdentifier::init();
+    let mut buf = Vec::<u8>::new();
     loop {
-        let mut buf = Vec::<u8>::new();
         println!("Reading bytes");
         let read_bytes = stream.read_buf(&mut buf).await.expect("Couldn't read bytes");
         if read_bytes == 0 {
@@ -101,11 +101,11 @@ async fn handle_client(mut stream: TcpStream) {
         }
     
         println!("Deserializing");
-        let resp_object = deserialize(&buf)
+        let (resp_object, collected) = deserialize(&mut buf)
         .expect("Failed to deserialize RESP object");
-    
+
         println!("Interpreting");
-        let redis_command = interpret(resp_object, &buf)
+        let redis_command = interpret(resp_object, &collected)
         .await
         .expect("Failed to interpret Redis command");
     

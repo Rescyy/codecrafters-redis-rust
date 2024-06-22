@@ -1,5 +1,8 @@
 use bytes::BufMut;
 use format_bytes::format_bytes;
+use tokio::{io::AsyncReadExt, net::TcpStream};
+
+use crate::show;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RespDatatype {
@@ -22,25 +25,74 @@ pub enum RespDatatype {
     // Push
 }
 
-// In the future may change return type to Result, it's easier to implement Option
-pub fn deserialize(buf: &Vec<u8>) -> Option<RespDatatype> {
+#[allow(dead_code)]
+struct RespStreamTokenizer<'a> {
+    stream: &'a mut TcpStream,
+    buf: Vec<u8>,
+}
+#[allow(dead_code)]
+impl<'a> RespStreamTokenizer<'a> {
+    fn new(stream: &'a mut TcpStream) -> Self {
+        RespStreamTokenizer {stream, buf: Vec::new()}
+    }
+
+    fn consume(self) -> Vec<u8> {
+        self.buf
+    }
+
+    async fn get(&mut self) -> Option<&[u8]> {
+        let mut byte: [u8; 1] = [0];
+        let _ = self.stream.read_exact(&mut byte).await;
+
+
+
+        todo!()
+    }
+}
+#[allow(dead_code, unused)]
+pub fn deserialize_stream<'a>(stream: &'a mut TcpStream) -> (Option<RespDatatype>, Vec<u8>) {
+    let mut tokenizer = RespStreamTokenizer::new(stream);
+    todo!();
+}
+
+// Takes in muttable buffer
+// The buffer is drained according to the amount of bytes parsed and that take part in the RespDatatype
+// Returns RespDatatype, Vector of its corresponding bytes and the rest of the bytes
+pub fn deserialize(buf: &mut Vec<u8>) -> Result<(RespDatatype, Vec<u8>), String> {
     
     let mut splice_array: Vec<&[u8]> = Vec::new();
+    let mut splice_indeces: Vec<usize> = Vec::new();
+    let mut last_split = 0;
     
-    {
-        let mut last_split = 0;
-        
-        for i in 0..buf.len()-1 {
-            if &buf[i..i+2] == b"\r\n" {
-                splice_array.push(&buf[last_split..i]);
-                last_split = i+2;
-            }
+    for i in 0..buf.len()-1 {
+        if &buf[i..i+2] == b"\r\n" {
+            splice_array.push(&buf[last_split..i]);
+            splice_indeces.push(i);
+            last_split = i+2;
         }
     }
     
     return match deserialize_recursive(0, &splice_array) {
-        Some((resp_object, i)) => if i == splice_array.len() {Some(resp_object)} else {None},
-        None => None
+        Some((resp_object, i)) =>  {
+            let temp_buf = buf.clone();
+            let collected = match splice_indeces.get(i) {
+                Some(i) => if buf.len() >= *i {
+                    buf.clear();
+                    buf.put(&temp_buf[*i..]);
+                    temp_buf[..*i].to_vec()
+                } else {
+                    buf.clear();
+                    temp_buf
+                },
+                None => {
+                    buf.clear();
+                    temp_buf
+                },
+            };
+            
+            Ok((resp_object, collected))
+        },
+        None => Err(format!("Couldn't deserialize the RESP bytes: {}", show(&buf[..])))
     }
 }
 
@@ -50,7 +102,7 @@ fn deserialize_recursive(mut i: usize, splice_array: &Vec<&[u8]>) -> Option<(Res
         return None;
     }
     let splice = splice_array[i];
-    
+
     match splice[0] {
         b'+' => {
             match String::from_utf8(splice[1..].to_vec()) {

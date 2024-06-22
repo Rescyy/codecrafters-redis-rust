@@ -1,3 +1,5 @@
+use std::ascii::escape_default;
+
 use rand::seq::SliceRandom;
 
 const HEX_DIGITS: &[u8; 16] = b"0123456789abcdef";
@@ -18,4 +20,13 @@ pub fn is_valid_master_replid(master_replid: &[u8]) -> bool {
         }
     }
     true
+}
+
+pub fn show(bs: &[u8]) -> String {
+    let mut visible = String::new();
+    for &b in bs {
+        let part: Vec<u8> = escape_default(b).collect();
+        visible.push_str(std::str::from_utf8(&part).unwrap());
+    }
+    visible
 }
