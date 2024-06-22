@@ -56,7 +56,7 @@ pub async fn interpret(resp_object: RespDatatype, buf: &Vec<u8>) -> Option<Redis
             match split.next() {
                 Some("FULLRESYNC") => interpret_fullresync(split).await,
                 Some(command) => make_error_command(format!("Unknown command received: {:?}", command)),
-                _ => make_error_command(format!("Unknown command received.d"),)
+                _ => make_error_command(format!("Unknown command received."),)
             }
         },
         _ => return None,

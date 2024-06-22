@@ -104,6 +104,7 @@ async fn handle_master(mut stream: TcpStream) {
             return;
         }
     
+        println!("{:?}", &buf[..]);
         println!("Deserializing");
         let resp_object = deserialize(&buf)
         .expect("Failed to deserialize RESP object");
