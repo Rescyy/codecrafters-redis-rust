@@ -117,3 +117,7 @@ async fn handle_master(mut stream: TcpStream) {
         drop(redis_command);
     }
 }
+
+async fn read_rdb(stream: &mut TcpStream, buf: &mut Vec<u8>) -> Result<(), String> {
+    todo!();
+}

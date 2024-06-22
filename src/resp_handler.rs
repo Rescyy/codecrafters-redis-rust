@@ -26,32 +26,34 @@ pub enum RespDatatype {
 }
 
 #[allow(dead_code)]
-struct RespStreamTokenizer<'a> {
+struct RespStreamReader<'a> {
     stream: &'a mut TcpStream,
     buf: Vec<u8>,
 }
 #[allow(dead_code)]
-impl<'a> RespStreamTokenizer<'a> {
+impl<'a> RespStreamReader<'a> {
     fn new(stream: &'a mut TcpStream) -> Self {
-        RespStreamTokenizer {stream, buf: Vec::new()}
+        Self {stream, buf: Vec::new()}
     }
 
     fn consume(self) -> Vec<u8> {
         self.buf
     }
 
-    async fn get(&mut self) -> Option<&[u8]> {
+    async fn get(&mut self) -> Result<&[u8], std::io::Error> {
         let mut byte: [u8; 1] = [0];
-        let _ = self.stream.read_exact(&mut byte).await;
+        self.stream.read_exact(&mut byte).await?;
+        // self.stream.read_buf()
 
 
 
         todo!()
     }
 }
+
 #[allow(dead_code, unused)]
-pub fn deserialize_stream<'a>(stream: &'a mut TcpStream) -> (Option<RespDatatype>, Vec<u8>) {
-    let mut tokenizer = RespStreamTokenizer::new(stream);
+pub fn deserialize_stream<'a>(stream: &'a mut TcpStream) -> Result<(RespDatatype, Vec<u8>), String> {
+    let mut tokenizer = RespStreamReader::new(stream);
     todo!();
 }
 
