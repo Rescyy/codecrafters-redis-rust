@@ -94,6 +94,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
 }
 
 async fn handle_master(mut stream: TcpStream) {
+    
     println!("Listening to master commands");
     loop {
         let mut buf = Vec::<u8>::new();
