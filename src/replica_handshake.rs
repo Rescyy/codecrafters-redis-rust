@@ -1,13 +1,13 @@
 use anyhow::anyhow;
 use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream};
 
-use crate::{serialize, RespDatatype, OK_STRING, PONG_STRING};
+use crate::{deserialize, interpret, serialize, RespDatatype, OK_STRING, PONG_STRING};
 
 lazy_static! {  
     static ref PING_COMMAND: Vec<u8> = serialize(&RespDatatype::Array(vec![RespDatatype::BulkString(b"PING".to_vec())]));
 }
 
-pub async fn send_handshake(master_host: &String, master_port: &String, slave_port: &String) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn send_handshake(master_host: &String, master_port: &String, slave_port: &String) -> Result<TcpStream, Box<dyn std::error::Error>> {
     let mut stream = TcpStream::connect(format!("{master_host}:{master_port}")).await?;
     let mut buf = Vec::<u8>::new();
     stream.write_all(&PING_COMMAND[..]).await?;
@@ -67,7 +67,14 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     stream.write_all(&psync_command).await?;
     stream.read_buf(&mut buf).await?;
 
+    let resp_object = match deserialize(&buf) {
+        Some(resp_object) => resp_object,
+        None => return Err(Box::from(anyhow!("Invalid response to PSYNC")))
+    };
+    
+    interpret(resp_object, &buf).await;
+
     buf.clear();
 
-    return Ok(());
+    return Ok(stream);
 }

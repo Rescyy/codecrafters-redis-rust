@@ -38,8 +38,8 @@ async fn main() {
     let mut role: &[u8] = b"master";
     let mut master_host = String::from("localhost");
     let mut master_port = String::from("6379");
-
     let mut args = env::args();
+
     args.next();
     while let Some(flag) = args.next() {
         match flag.as_str() {
@@ -56,7 +56,8 @@ async fn main() {
                 if master_args.next() != None {
                     panic!("{}", INCORRECT_FORMAT_REPLICAOF);
                 }
-                send_handshake(&master_host, &master_port, &port).await.expect("Handshake failed");
+                let master_stream = send_handshake(&master_host, &master_port, &port).await.expect("Handshake failed");
+                tokio::spawn(async move {handle_client(master_stream).await});
             },
             flag => panic!("Unknown flag: \"{flag}\""),
         }
@@ -66,27 +67,27 @@ async fn main() {
 
     set_value(b"port", port.as_bytes()).await;
     set_value(b"role", role).await;
-    // if role == b"master" {
+    set_value(b"master_port", master_port.as_bytes()).await;
+    set_value(b"master_host", master_host.as_bytes()).await;
+    if role == b"master" {
         set_value(b"master_replid", &generate_master_replid()).await;
         set_value(b"master_repl_offset", b"0").await;
-    // }
-    set_value(b"master_host", master_host.as_bytes()).await;
-    set_value(b"master_port", master_port.as_bytes()).await;
-
-    start_slaves();
-
-    loop {
-        let stream = listener.accept().await;
+        start_slaves();
         
-        match stream {
-            Ok((stream, _)) => {
-                tokio::spawn(async move {
-                    handle_client(stream).await
-                });
+            loop {
+                let stream = listener.accept().await;
+                
+                match stream {
+                    Ok((stream, _)) => {
+                        tokio::spawn(async move {
+                            handle_client(stream).await
+                        });
+                    }
+                    Err(_) => ()
+                }
             }
-            Err(_) => ()
         }
-    }
+
 }
 
 async fn handle_client(mut stream: TcpStream) {

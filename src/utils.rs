@@ -1,12 +1,21 @@
 use rand::seq::SliceRandom;
 
-const HEX_DIGITS2: &[u8; 16] = b"0123456789abcdef";
+const HEX_DIGITS: &[u8; 16] = b"0123456789abcdef";
 
 pub fn generate_master_replid() -> Vec<u8> {
     let mut master_replid: Vec<u8> = Vec::with_capacity(40);
     let rng = &mut rand::thread_rng();
     for _ in 0..40 {
-        master_replid.push(*HEX_DIGITS2.choose(rng).unwrap());
+        master_replid.push(*HEX_DIGITS.choose(rng).unwrap());
     }
     return master_replid;
+}
+
+pub fn is_valid_master_replid(master_replid: &[u8]) -> bool {
+    for byte in master_replid.iter() {
+        if *byte < b'0' || *byte > b'9' && *byte < b'a' || *byte > b'f' {
+            return false
+        }
+    }
+    true
 }

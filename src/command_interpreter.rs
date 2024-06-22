@@ -2,7 +2,7 @@ use std::vec::IntoIter;
 use format_bytes::format_bytes;
 
 use crate::resp_handler::RespDatatype;
-use crate::{database::*, push_to_slaves, SlaveTask};
+use crate::{database::*, is_valid_master_replid, push_to_slaves, SlaveTask};
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -46,6 +46,7 @@ pub async fn interpret(resp_object: RespDatatype, buf: &Vec<u8>) -> Option<Redis
                 b"INFO" => interpret_info(array_iterator).await,
                 b"REPLCONF" => interpret_replconf(array_iterator).await,
                 b"PSYNC" => interpret_psync(array_iterator).await,
+                b"FULLRESYNC" => interpret_fullresync(array_iterator).await,
                 _ => return make_error_command(format!("Unknown command received {:?}", command)),
             }
         },
@@ -196,6 +197,33 @@ async fn interpret_psync(mut array_iterator: IntoIter<RespDatatype>) -> Option<R
     todo!();
 }
 
+async fn interpret_fullresync(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
+    let master_replid = match array_iterator.next() {
+        Some(RespDatatype::BulkString(master_replid)) => {
+            if is_valid_master_replid(&master_replid[..]) {
+                master_replid
+            } else {
+                return make_error_command("Invalid master replid")
+            }
+        },
+        _ => return make_error_command("Invalid master replid"),
+    };
+    let master_repl_offset = match array_iterator.next() {
+        Some(RespDatatype::BulkString(master_repl_offset)) => {
+            let master_repl_offset = match String::from_utf8(master_repl_offset) {
+                Ok(master_repl_offset) => master_repl_offset,
+                Err(_) => return make_error_command("Invalid master repl offset"),
+            };
+            match master_repl_offset.parse::<u64>() {
+                Ok(master_repl_offset) => master_repl_offset,
+                Err(_) => return make_error_command("Invalid master repl offset"),
+            };
+            master_repl_offset.as_bytes().to_vec()
+        },
+        _ => return make_error_command("Invalid master repl offset"),
+    };
+    return Some(RedisCommand::FullResync(master_replid, master_repl_offset))
+}
 #[inline]
 fn make_error_command<T: ToString>(string: T) -> Option<RedisCommand> {
     return Some(RedisCommand::Error(string.to_string()));

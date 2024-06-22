@@ -1,7 +1,7 @@
 use bytes::BufMut;
 use format_bytes::format_bytes;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RespDatatype {
     SimpleString(String),
     SimpleError(String),
