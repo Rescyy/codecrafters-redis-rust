@@ -62,7 +62,7 @@ impl RespStreamHandler {
     }
 
     async fn refill(&mut self, min_size: usize) -> Result<usize, Box<dyn Error>> {
-        let mut bytes_filled = self.stream.read_buf(&mut self.buf).await?;
+        let mut bytes_filled = self.stream.try_read_buf(&mut self.buf)?;
         while min_size > self.buf.len() {
             bytes_filled += self.stream.read_buf(&mut self.buf).await?;
         }
