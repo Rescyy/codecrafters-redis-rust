@@ -61,7 +61,7 @@ impl RespStreamHandler {
         if self.buf.len() > 0 {
             return false;
         }
-        return match self.refill(0).await {
+        return match self.refill(1).await {
             Ok(bytes_read) => bytes_read == 0,
             Err(_) => true,
         }
