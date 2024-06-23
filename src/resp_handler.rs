@@ -62,7 +62,6 @@ impl RespStreamHandler {
     }
 
     async fn refill(&mut self, min_size: usize) -> Result<usize, Box<dyn Error>> {
-        dbg!(&self);
         let mut bytes_filled = match self.stream.try_read_buf(&mut self.buf) {
             Ok(n) => n,
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => 0,
@@ -103,7 +102,7 @@ impl RespStreamHandler {
     async fn get_until_crnl(&mut self) -> Result<&[u8], Box<dyn Error>> {
         let mut last_index = self.index;
         loop {
-            self.refill(0).await?;
+            self.refill(3).await?;
             for i in last_index..self.buf.len()-2 {
                 if &self.buf[i..i+2] == b"\r\n" {
                     self.index = i+2;
