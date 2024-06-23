@@ -98,7 +98,7 @@ impl RespStreamHandler {
     async fn get_until_crnl(&mut self) -> Result<&[u8], Box<dyn Error>> {
         let mut last_index = self.index;
         loop {
-            for i in last_index..self.buf.len()-1 {
+            for i in last_index..self.buf.len()-2 {
                 if &self.buf[i..i+2] == b"\r\n" {
                     self.index = i+2;
                     return Ok(&self.buf[..i])
