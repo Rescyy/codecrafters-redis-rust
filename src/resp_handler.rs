@@ -148,7 +148,7 @@ impl RespStreamHandler {
     async fn deserialize_stream_recursive(&mut self) -> Result<RespDatatype, Box<dyn Error>> {
 
         let splice = self.get_until_crnl().await?;
-        dbg!(splice);
+        // dbg!(splice);
         return match splice[0] {
             b'+' => Ok(RespDatatype::SimpleString(String::from_utf8(splice[1..].to_vec())?)),
             b'-' => Ok(RespDatatype::SimpleError(String::from_utf8(splice[1..].to_vec())?)),
