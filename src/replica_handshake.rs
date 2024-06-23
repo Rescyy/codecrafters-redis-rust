@@ -13,10 +13,13 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     let mut resp_stream_handler = RespStreamHandler::new(stream);
     
     resp_stream_handler.write_all(&PING_COMMAND[..]).await?;
+    dbg!(&resp_stream_handler);
     let (_, buf) = resp_stream_handler.deserialize_stream().await?;
+    dbg!(&resp_stream_handler);
     if &buf[..] != PONG_STRING {
         return Err(Box::from(anyhow!("Didn't receive PING response")));
     }
+    dbg!(&resp_stream_handler);
 
     let replconf_command1 = serialize(
         &RespDatatype::Array(

@@ -31,7 +31,7 @@ pub enum RespDatatype {
 // In case there is an error, the buffer is cleared until a valid RespDatatype is found
 // This should be able to handle concurrent streams of commands
 // This should be able to extract RespDatatypes and RDB files
-
+#[derive(Debug)]
 pub struct RespStreamHandler {
     stream: TcpStream,
     buf: Vec<u8>,
