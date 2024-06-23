@@ -68,6 +68,7 @@ impl RespStreamHandler {
             Err(e) => return Err(e.into()),
         };
         while min_size > self.buf.len() {
+            dbg!(&self);
             bytes_filled += self.stream.read_buf(&mut self.buf).await?;
         }
         Ok(bytes_filled)
