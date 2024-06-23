@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use bytes::BufMut;
-use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream};
+use tokio::{io::AsyncReadExt, net::TcpStream};
 
 use crate::{interpret, serialize, set_value, show, RedisCommand, RespDatatype, RespStreamHandler, OK_STRING, PONG_STRING};
 
