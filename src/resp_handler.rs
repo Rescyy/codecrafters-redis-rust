@@ -62,6 +62,7 @@ impl RespStreamHandler {
     }
 
     async fn refill(&mut self, min_size: usize) -> Result<usize, Box<dyn Error>> {
+        dbg!(&self);
         let mut bytes_filled = match self.stream.try_read_buf(&mut self.buf) {
             Ok(n) => n,
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => 0,
