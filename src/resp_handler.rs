@@ -105,7 +105,7 @@ impl RespStreamHandler {
         let mut last_index = self.index;
         loop {
             self.refill(3).await?;
-            for i in last_index..self.buf.len()-2 {
+            for i in last_index..self.buf.len()-1 {
                 if &self.buf[i..i+2] == b"\r\n" {
                     self.index = i+2;
                     return Ok(&self.buf[..i])
