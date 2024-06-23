@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, io};
 use anyhow::anyhow;
 use async_recursion::async_recursion;
 use format_bytes::format_bytes;
@@ -62,7 +62,11 @@ impl RespStreamHandler {
     }
 
     async fn refill(&mut self, min_size: usize) -> Result<usize, Box<dyn Error>> {
-        let mut bytes_filled = self.stream.try_read_buf(&mut self.buf)?;
+        let mut bytes_filled = match self.stream.try_read_buf(&mut self.buf) {
+            Ok(n) => n,
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => 0,
+            Err(e) => return Err(e.into()),
+        };
         while min_size > self.buf.len() {
             bytes_filled += self.stream.read_buf(&mut self.buf).await?;
         }
