@@ -1,24 +1,22 @@
 use anyhow::anyhow;
 use bytes::BufMut;
-use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream};
+use tokio::{io::AsyncReadExt, net::TcpStream};
 
-use crate::{deserialize, interpret, serialize, set_value, show, RedisCommand, RespDatatype, OK_STRING, PONG_STRING};
+use crate::{interpret, serialize, set_value, show, RedisCommand, RespDatatype, RespStreamHandler, OK_STRING, PONG_STRING};
 
 lazy_static! {  
     static ref PING_COMMAND: Vec<u8> = serialize(&RespDatatype::Array(vec![RespDatatype::BulkString(b"PING".to_vec())]));
 }
 
 pub async fn send_handshake(master_host: &String, master_port: &String, slave_port: &String) -> Result<(), Box<dyn std::error::Error>> {
-    let mut stream = TcpStream::connect(format!("{master_host}:{master_port}")).await?;
-    let mut buf = Vec::<u8>::new();
-    stream.write_all(&PING_COMMAND[..]).await?;
-    stream.read_buf(&mut buf).await?;
-
+    let stream = TcpStream::connect(format!("{master_host}:{master_port}")).await?;
+    let mut resp_stream_handler = RespStreamHandler::new(stream);
+    
+    resp_stream_handler.write_all(&PING_COMMAND[..]).await?;
+    let (_, buf) = resp_stream_handler.deserialize_stream().await?;
     if &buf[..] != PONG_STRING {
         return Err(Box::from(anyhow!("Didn't receive PING response")));
     }
-
-    buf.clear();
 
     let replconf_command1 = serialize(
         &RespDatatype::Array(
@@ -29,14 +27,11 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
             ]
         )
     );
-    stream.write_all(&replconf_command1).await?;
-    stream.read_buf(&mut buf).await?;
-
+    resp_stream_handler.write_all(&replconf_command1).await?;
+    let (_, buf) = resp_stream_handler.deserialize_stream().await?;
     if &buf[..] != OK_STRING {
         return Err(Box::from(anyhow!("Didn't receive OK response")));
     }
-
-    buf.clear();
     
     let replconf_command2 = serialize(
         &RespDatatype::Array(
@@ -47,14 +42,11 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
             ]
         )
     );
-    stream.write_all(&replconf_command2).await?;
-    stream.read_buf(&mut buf).await?;
-
+    resp_stream_handler.write_all(&replconf_command2).await?;
+    let (_, buf) = resp_stream_handler.deserialize_stream().await?;
     if &buf[..] != OK_STRING {
         return Err(Box::from(anyhow!("Didn't receive OK response")));
     }
-
-    buf.clear();
 
     let psync_command = serialize(
         &RespDatatype::Array(
@@ -65,49 +57,34 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
             ]
         )
     );
-    stream.write_all(&psync_command).await?;
-    stream.read_buf(&mut buf).await?;
+    resp_stream_handler.write_all(&psync_command).await?;
+    let (resp_object, buf) = resp_stream_handler.deserialize_stream().await?;
 
-    let (resp_object, collected) = match deserialize(&mut buf) {
-        Ok(result) => result,
-        Err(err) => return Err(Box::from(anyhow!(err)))
-    };
-
-    match interpret(resp_object, &collected).await {
+    match interpret(resp_object, &buf).await {
         Some(RedisCommand::FullResync(master_replid, master_repl_offset)) => {
             set_value(b"master_replid", &master_replid).await;
             set_value(b"master_repl_offset", &master_repl_offset).await;
         },
-        _ => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC: {}", show(&collected[..])))),
+        _ => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC: {}", show(&buf[..])))),
     };
 
-    read_rdb(&mut stream, &mut buf).await?;
+    resp_stream_handler.get_rdb().await?;
 
-    tokio::spawn(async move {handle_master(stream).await});
+    tokio::spawn(async move {handle_master(resp_stream_handler).await});
 
     return Ok(());
 }
 
-async fn handle_master(mut stream: TcpStream) {
-    
+async fn handle_master(mut resp_stream_reader: RespStreamHandler) {
     println!("Listening to master commands");
-    let mut buf = Vec::<u8>::new();
     loop {
-        println!("Reading bytes");
-        let read_bytes = stream.read_buf(&mut buf).await.expect("Couldn't read bytes");
-        // println!("Current buffer: {}", show(&buf[..]));
-        if read_bytes == 0 {
-            println!("No bytes received");
-            return;
-        } else {
-            println!("{} bytes received", read_bytes);
+        if resp_stream_reader.is_shutdown().await {
+            break;
         }
     
-        println!("Current buffer: {}", show(&buf[..]));
         println!("Deserializing");
-        let (resp_object, collected) = deserialize(&mut buf)
+        let (resp_object, collected) = resp_stream_reader.deserialize_stream().await
         .expect("Failed to deserialize RESP object");
-        println!("Current buffer: {}", show(&buf[..]));
 
         println!("Interpreting");
         let redis_command = interpret(resp_object, &collected)
@@ -118,6 +95,7 @@ async fn handle_master(mut stream: TcpStream) {
     }
 }
 
+#[allow(unused)]
 async fn read_rdb(stream: &mut TcpStream, buf: &mut Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
     let mut index = 0;
     // let mut state = 0; // 0-looking for $, 1-looking for number, 2-looking for \r\n, 3-looking for text

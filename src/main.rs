@@ -20,7 +20,6 @@ mod slaves;
 use slaves::*;
 
 use tokio::net::{TcpListener, TcpStream};
-use tokio::io::AsyncReadExt;
 use std::env;
 
 #[macro_use]
@@ -88,24 +87,18 @@ async fn main() {
     }
 }
 
-async fn handle_client(mut stream: TcpStream) {
+async fn handle_client(stream: TcpStream) {
     println!("Accepted new connection! Handling client");
+    let mut resp_stream_handler = RespStreamHandler::new(stream);
     let mut slave_identifier: SlaveIdentifier = SlaveIdentifier::init();
-    let mut buf = Vec::<u8>::new();
     loop {
-        print!("Reading bytes: ");
-        let read_bytes = stream.read_buf(&mut buf).await.expect("Couldn't read bytes");
-        // println!("Current buffer: {}", show(&buf[..]));
-        if read_bytes == 0 {
-            println!("No bytes received");
-            return;
-        } else {
-            println!("{} bytes received", read_bytes);
+        if resp_stream_handler.is_shutdown().await {
+            break;
         }
     
         println!("Deserializing");
-        let (resp_object, collected) = deserialize(&mut buf)
-        .expect("Failed to deserialize RESP object");
+        let (resp_object, collected) = resp_stream_handler.deserialize_stream().await
+        .expect("Failed to deserialize RESP object: ");
 
         println!("Interpreting");
         let redis_command = interpret(resp_object, &collected)
@@ -113,7 +106,7 @@ async fn handle_client(mut stream: TcpStream) {
         .expect("Failed to interpret Redis command");
     
         println!("Responding");
-        respond(&mut stream, &redis_command).await;
+        respond(&mut resp_stream_handler, &redis_command).await;
 
         if slave_identifier.is_slave(&redis_command) {
             break;
@@ -121,7 +114,7 @@ async fn handle_client(mut stream: TcpStream) {
     }
     
     if slave_identifier.is_synced() {
-        handle_slave(stream).await;
+        handle_slave(resp_stream_handler.consume()).await;
     }
 }
 
