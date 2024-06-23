@@ -33,7 +33,7 @@ pub enum RespDatatype {
 // This should be able to extract RespDatatypes and RDB files
 #[derive(Debug)]
 pub struct RespStreamHandler {
-    stream: TcpStream,
+    pub stream: TcpStream,
     buf: Vec<u8>,
     index: usize,
 }
