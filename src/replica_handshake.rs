@@ -15,6 +15,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     resp_stream_handler.write_all(&PING_COMMAND[..]).await?;
     let res = resp_stream_handler.stream.try_read_buf(&mut buf);
     dbg!(res);
+    resp_stream_handler.stream.read_buf(&mut buf).await?;
     println!("Passed");
     // resp_stream_handler.write_all(&PING_COMMAND[..]).await?;
     
