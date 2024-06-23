@@ -112,7 +112,7 @@ impl RespStreamHandler {
             for i in last_index..self.buf.len()-1 {
                 if &self.buf[i..i+2] == b"\r\n" {
                     self.index = i+2;
-                    return Ok(&self.buf[..i])
+                    return Ok(&self.buf[last_index..i])
                 }
             } 
             last_index = self.buf.len()-1;
