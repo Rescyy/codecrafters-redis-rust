@@ -13,7 +13,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     let mut resp_stream_handler = RespStreamHandler::new(stream);
     let mut buf: Vec<u8> = Vec::new();
     resp_stream_handler.write_all(&PING_COMMAND[..]).await?;
-    resp_stream_handler.stream.read_buf(&mut buf).await?;
+    resp_stream_handler.stream.try_read_buf(&mut buf);
     println!("Passed");
     // resp_stream_handler.write_all(&PING_COMMAND[..]).await?;
     
