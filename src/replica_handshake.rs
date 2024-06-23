@@ -1,6 +1,5 @@
 use anyhow::anyhow;
-use bytes::BufMut;
-use tokio::{io::AsyncReadExt, net::TcpStream};
+use tokio::net::TcpStream;
 
 use crate::{interpret, serialize, set_value, show, RedisCommand, RespDatatype, RespStreamHandler, OK_STRING, PONG_STRING};
 
@@ -20,7 +19,6 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     if &buf[..] != PONG_STRING {
         return Err(Box::from(anyhow!("Didn't receive PING response")));
     }
-    resp_stream_handler.print_buffer();
 
     let replconf_command1 = serialize(
         &RespDatatype::Array(
@@ -36,7 +34,6 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     if &buf[..] != OK_STRING {
         return Err(Box::from(anyhow!("Didn't receive OK response")));
     }
-    resp_stream_handler.print_buffer();
 
     let replconf_command2 = serialize(
         &RespDatatype::Array(
@@ -52,7 +49,6 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     if &buf[..] != OK_STRING {
         return Err(Box::from(anyhow!("Didn't receive OK response")));
     }
-    resp_stream_handler.print_buffer();
 
     let psync_command = serialize(
         &RespDatatype::Array(
@@ -65,7 +61,6 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     );
     resp_stream_handler.write_all(&psync_command).await?;
     let (resp_object, buf) = resp_stream_handler.deserialize_stream().await?;
-    resp_stream_handler.print_buffer();
 
     match interpret(resp_object, &buf).await {
         Some(RedisCommand::FullResync(master_replid, master_repl_offset)) => {
@@ -76,7 +71,6 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     };
 
     resp_stream_handler.get_rdb().await?;
-    resp_stream_handler.print_buffer();
 
     tokio::spawn(async move {handle_master(resp_stream_handler).await});
 
@@ -102,51 +96,4 @@ async fn handle_master(mut resp_stream_reader: RespStreamHandler) {
         
         drop(redis_command);
     }
-}
-
-#[allow(unused)]
-async fn read_rdb(stream: &mut TcpStream, buf: &mut Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
-    let mut index = 0;
-    // let mut state = 0; // 0-looking for $, 1-looking for number, 2-looking for \r\n, 3-looking for text
-    // let box_error = Err(Box::from(anyhow!("Invalid RDB File")));
-    loop {
-        match buf.get(index) {
-            Some(&b'$') => {index += 1; break},
-            Some(_) => return Err(Box::from(anyhow!("Invalid RDB File1"))),
-            None => {stream.read_buf(buf).await?;}
-        }
-    };
-    let number;
-    loop {
-        match buf.get(index) {
-            Some(&b'\r') => {
-                number = String::from_utf8(buf[1..index].to_vec())?.parse::<usize>()?;
-                index += 1;
-                break;
-            },
-            Some(_) => index += 1,
-            None => {stream.read_buf(buf).await?;}
-        }
-    };
-    stream.read_buf(buf).await?;
-    match buf.get(index) {
-        Some(&b'\n') => index += 1,
-        Some(_) => return Err(Box::from(anyhow!("Invalid RDB File2"))),
-        None => {stream.read_buf(buf).await?;},
-    }
-    if buf.len() == number+index {
-        buf.clear();
-    } else if buf.len() > number+index {
-        let temp_buf = buf[index+number..].to_vec();
-        buf.clear();
-        buf.put(&temp_buf[..])
-    } else {
-        while buf.len() < number+index {
-            stream.read_buf(buf).await?;
-        }
-        let temp_buf = buf[index+number..].to_vec();
-        buf.clear();
-        buf.put(&temp_buf[..])
-    }
-    return Ok(())
 }

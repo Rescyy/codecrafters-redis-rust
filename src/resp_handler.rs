@@ -4,8 +4,6 @@ use async_recursion::async_recursion;
 use format_bytes::format_bytes;
 use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpStream};
 
-use crate::show;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum RespDatatype {
     SimpleString(String),
@@ -47,10 +45,6 @@ impl RespStreamHandler {
 
     pub fn consume(self) -> TcpStream {
         self.stream
-    }
-
-    pub fn print_buffer(&self) {
-        println!("Length: {}\nContent: \"{}\"", self.buf.len(), show(self.buf.as_slice()))
     }
 
     pub async fn write_all(&mut self, buf: &[u8]) -> Result<(), Box<dyn Error>> {
@@ -139,7 +133,6 @@ impl RespStreamHandler {
 
     pub async fn deserialize_stream(&mut self) -> Result<(RespDatatype, Vec<u8>), Box<dyn Error>> {
         let resp_object = self.deserialize_stream_recursive().await?;
-        self.print_buffer();
         let drained: Vec<u8> = self.get_drained();
         return Ok((resp_object, drained))
     }
@@ -148,7 +141,6 @@ impl RespStreamHandler {
     async fn deserialize_stream_recursive(&mut self) -> Result<RespDatatype, Box<dyn Error>> {
 
         let splice = self.get_until_crnl().await?;
-        // dbg!(splice);
         return match splice[0] {
             b'+' => Ok(RespDatatype::SimpleString(String::from_utf8(splice[1..].to_vec())?)),
             b'-' => Ok(RespDatatype::SimpleError(String::from_utf8(splice[1..].to_vec())?)),
@@ -178,176 +170,6 @@ impl RespStreamHandler {
         }
     }
 }
-
-
-// Takes in muttable buffer
-// The buffer is drained according to the amount of bytes parsed and that take part in the RespDatatype
-// Returns RespDatatype, Vector of its corresponding bytes and the rest of the bytes
-// pub fn deserialize(buf: &mut Vec<u8>) -> Result<(RespDatatype, Vec<u8>), String> {
-    
-//     let mut splice_array: Vec<&[u8]> = Vec::new();
-//     let mut splice_indeces: Vec<usize> = Vec::new();
-//     let mut last_split = 0;
-    
-//     for i in 0..buf.len()-1 {
-//         if &buf[i..i+2] == b"\r\n" {
-//             splice_array.push(&buf[last_split..i]);
-//             splice_indeces.push(i+2);
-//             last_split = i+2;
-//         }
-//     }
-    
-//     return match deserialize_recursive(0, &splice_array) {
-//         Some((resp_object, i)) =>  {
-//             let temp_buf = buf.clone();
-//             let collected = match splice_indeces.get(i-1) {
-//                 Some(i) => if buf.len() >= *i {
-//                     buf.clear();
-//                     buf.put(&temp_buf[*i..]);
-//                     temp_buf[..*i].to_vec()
-//                 } else {
-//                     buf.clear();
-//                     temp_buf
-//                 },
-//                 None => {
-//                     buf.clear();
-//                     temp_buf
-//                 },
-//             };
-            
-//             Ok((resp_object, collected))
-//         },
-//         None => Err(format!("Couldn't deserialize the RESP bytes: {}", show(&buf[..])))
-//     }
-// }
-
-// fn deserialize_recursive(mut i: usize, splice_array: &Vec<&[u8]>) -> Option<(RespDatatype, usize)> {
-    
-//     if i >= splice_array.len() {
-//         return None;
-//     }
-//     let splice = splice_array[i];
-
-//     match splice[0] {
-//         b'+' => {
-//             match String::from_utf8(splice[1..].to_vec()) {
-//                 Ok(simple_string) => {
-//                     return Some((RespDatatype::SimpleString(simple_string), i+1));
-//                 },
-//                 Err(e) => {
-//                     println!("Error: {}", e);
-//                 }
-//             }
-//         },
-//         b'-' => {
-//             match String::from_utf8(splice[1..].to_vec()) {
-//                 Ok(simple_error) => {
-//                     return Some((RespDatatype::SimpleError(simple_error), i+1));
-//                 },
-//                 Err(e) => {
-//                     println!("Error: {}", e);
-//                 }
-//             }
-//         },
-//         b':' => {
-//             match String::from_utf8(splice[1..].to_vec()) {
-//                 Ok(integer_string) => {
-//                     match integer_string.parse::<i64>() {
-//                         Ok(integer) => {
-//                             return Some((RespDatatype::Integer(integer), i+1));
-//                         },
-//                         Err(e) => {
-//                             println!("Error: {}", e);
-//                         }
-//                     }
-//                 },
-//                 Err(e) => {
-//                     println!("Error: {}", e);
-//                 }
-//             }
-//         },
-//         b'$' => {
-//             let bulk_length: isize;
-//             match String::from_utf8(splice[1..].to_vec()) {
-//                 Ok(length_string) => {
-//                     match length_string.parse() {
-//                         Ok(length) => {
-//                             bulk_length = length;
-//                         },
-//                         Err(e) => {
-//                             println!("Error: {}", e);
-//                             return None;
-//                         }
-//                     }
-//                 },
-//                 Err(e) => {
-//                     println!("Error: {}", e);
-//                     return None;
-//                 }
-//             };
-//             if bulk_length < 0 {
-//                 return Some((RespDatatype::NullBulkString, i+1));
-//             }
-//             i += 1;
-//             let bulk_length: usize = bulk_length.try_into().unwrap();
-//             let mut bulk_string: Vec<u8> = Vec::with_capacity(bulk_length);
-//             loop {
-//                 if i >= splice_array.len() {
-//                     return None;
-//                 }
-//                 bulk_string.put_slice(splice_array[i]);
-//                 if bulk_string.len() < bulk_length {
-//                     bulk_string.put_slice(b"\r\n");
-//                     i += 1;
-//                 } else {
-//                     break;
-//                 }
-//             }
-//             if bulk_string.len() == bulk_length {
-//                 return Some((RespDatatype::BulkString(bulk_string), i+1));
-//             }
-//         },
-//         b'*' => {
-//             let array_length: isize;
-//             match String::from_utf8(splice[1..].to_vec()) {
-//                 Ok(length_string) => {
-//                     match length_string.parse() {
-//                         Ok(length) => {
-//                             array_length = length;
-//                         },
-//                         Err(e) => {
-//                             println!("Error: {}", e);
-//                             return None;
-//                         }
-//                     }
-//                 },
-//                 Err(e) => {
-//                     println!("Error: {}", e);
-//                     return None;
-//                 }
-//             };
-//             if array_length < 0 {
-//                 return Some((RespDatatype::NullArray, i+1));
-//             }
-//             i += 1;
-//             let array_length: usize = array_length.try_into().unwrap();
-//             let mut array: Vec<RespDatatype> = Vec::with_capacity(array_length);
-//             for _ in 0..array_length {
-//                 match deserialize_recursive(i, splice_array) {
-//                     Some((resp_object, next_i)) => {
-//                         array.push(resp_object);
-//                         i = next_i;
-//                     },
-//                     None => return None,
-//                 }
-//             }
-//             return Some((RespDatatype::Array(array), i));
-//         },
-//         _ => ()
-//     }
-    
-//     return None;
-// }
 
 pub fn serialize(resp_object: &RespDatatype) -> Vec<u8> {
     let mut bytes: Vec<u8> = Vec::new();
