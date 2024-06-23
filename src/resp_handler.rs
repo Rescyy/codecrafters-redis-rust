@@ -55,28 +55,28 @@ impl RespStreamHandler {
         if self.buf.len() > 0 {
             return false;
         }
-        return match self.refill().await {
+        return match self.refill(0).await {
             Ok(bytes_read) => bytes_read == 0,
             Err(_) => true,
         }
     }
 
-    async fn refill(&mut self) -> Result<usize, Box<dyn Error>> {
-        Ok(self.stream.read_buf(&mut self.buf).await?)
+    async fn refill(&mut self, min_size: usize) -> Result<usize, Box<dyn Error>> {
+        let mut bytes_filled = self.stream.read_buf(&mut self.buf).await?;
+        while min_size > self.buf.len() {
+            bytes_filled += self.stream.read_buf(&mut self.buf).await?;
+        }
+        Ok(bytes_filled)
     }
 
     #[allow(unused)]
     async fn get_index(&mut self, index: usize) -> Result<u8, Box<dyn Error>> {
-        while index > self.buf.len() {
-            self.refill().await?;
-        }
+        self.refill(index+1).await?;
         return Ok(self.buf[index]);
     }
 
     async fn get_slice(&mut self, start: usize, end: usize) -> Result<&[u8], Box<dyn Error>> {
-        while end > self.buf.len() {
-            self.refill().await?;
-        }
+        self.refill(end).await?;
         return Ok(&self.buf[start..end])
     }
 
@@ -98,6 +98,7 @@ impl RespStreamHandler {
     async fn get_until_crnl(&mut self) -> Result<&[u8], Box<dyn Error>> {
         let mut last_index = self.index;
         loop {
+            self.refill(0).await?;
             for i in last_index..self.buf.len()-2 {
                 if &self.buf[i..i+2] == b"\r\n" {
                     self.index = i+2;
@@ -105,7 +106,6 @@ impl RespStreamHandler {
                 }
             } 
             last_index = self.buf.len()-1;
-            self.refill().await?;
         }
     }
 
