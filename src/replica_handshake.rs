@@ -16,14 +16,11 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     // resp_stream_handler.refill(3).await?;
     // println!("Passed");
     resp_stream_handler.write_all(&PING_COMMAND[..]).await?;
-    
-    dbg!(&resp_stream_handler);
     let (_, buf) = resp_stream_handler.deserialize_stream().await?;
-    dbg!(&resp_stream_handler);
     if &buf[..] != PONG_STRING {
         return Err(Box::from(anyhow!("Didn't receive PING response")));
     }
-    dbg!(&resp_stream_handler);
+    resp_stream_handler.print_buffer();
 
     let replconf_command1 = serialize(
         &RespDatatype::Array(
@@ -39,7 +36,8 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     if &buf[..] != OK_STRING {
         return Err(Box::from(anyhow!("Didn't receive OK response")));
     }
-    
+    resp_stream_handler.print_buffer();
+
     let replconf_command2 = serialize(
         &RespDatatype::Array(
             vec![
@@ -54,6 +52,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     if &buf[..] != OK_STRING {
         return Err(Box::from(anyhow!("Didn't receive OK response")));
     }
+    resp_stream_handler.print_buffer();
 
     let psync_command = serialize(
         &RespDatatype::Array(
@@ -66,6 +65,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     );
     resp_stream_handler.write_all(&psync_command).await?;
     let (resp_object, buf) = resp_stream_handler.deserialize_stream().await?;
+    resp_stream_handler.print_buffer();
 
     match interpret(resp_object, &buf).await {
         Some(RedisCommand::FullResync(master_replid, master_repl_offset)) => {
@@ -76,6 +76,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     };
 
     resp_stream_handler.get_rdb().await?;
+    resp_stream_handler.print_buffer();
 
     tokio::spawn(async move {handle_master(resp_stream_handler).await});
 
