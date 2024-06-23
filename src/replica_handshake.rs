@@ -87,6 +87,7 @@ async fn handle_master(mut resp_stream_reader: RespStreamHandler) {
     println!("Listening to master commands");
     loop {
         if resp_stream_reader.is_shutdown().await {
+            println!("Stream closed");
             break;
         }
     
