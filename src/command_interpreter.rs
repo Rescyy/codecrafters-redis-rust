@@ -233,5 +233,5 @@ async fn interpret_wait(mut array_iterator: IntoIter<RespDatatype>) -> Option<Re
 
 #[inline]
 fn make_error_command<T: ToString>(string: T) -> Option<RedisCommand> {
-    return Some(RedisCommand::Error(string.to_string()));
+    Some(RedisCommand::Error(string.to_string()))
 }
