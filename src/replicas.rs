@@ -117,10 +117,10 @@ pub async fn wait_to_replicas(numreplicas: usize, timeout: usize) -> usize {
                     if buf.starts_with(b"*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n") {
                         num_replies += 1;
                     }
-                    buf.clear();
                 }
                 Err(_) => continue,
             }
+            buf.clear();
         }
         sleep(Duration::from_millis(1)).await;
     }
