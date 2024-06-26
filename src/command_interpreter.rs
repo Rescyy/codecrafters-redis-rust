@@ -48,7 +48,7 @@ pub async fn interpret(resp_object: RespDatatype, buf: &Vec<u8>) -> Option<Redis
                 b"REPLCONF" => interpret_replconf(array_iterator).await,
                 b"PSYNC" => interpret_psync(array_iterator).await,
                 // b"FULLRESYNC" => interpret_fullresync(array_iterator).await,
-                _ => return make_error_command(format!("Unknown command received {:?}", show(&command[..]))),
+                _ => return make_error_command(format!("Unknown command received {:?}", show(&buf[..]))),
             }
         },
         _ => return None,
