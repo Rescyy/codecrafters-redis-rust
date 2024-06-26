@@ -103,8 +103,9 @@ pub async fn wait_to_replicas(numreplicas: usize, timeout: usize) -> usize {
     let start = Instant::now();
     let mut replicas = REPLICAS.lock().await;
     let mut num_replies = 0;
+    let wait_command = serialize(&RespDatatype::Array(vec![RespDatatype::BulkString(b"WAIT".to_vec())]));
     for replica in replicas.iter_mut() {
-        replica.stream.stream.write_all(&serialize(&RespDatatype::BulkString(b"WAIT".to_vec()))).await.unwrap();
+        replica.stream.stream.write_all(&wait_command).await.unwrap();
     }
 
     let mut buf: Vec<u8> = Vec::new();
