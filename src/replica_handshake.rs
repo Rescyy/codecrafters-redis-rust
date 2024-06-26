@@ -91,6 +91,33 @@ async fn handle_master(mut resp_stream_reader: RespStreamHandler) {
         .await
         .expect("Failed to interpret Redis command");
         
-        drop(redis_command);
+        master_respond(&mut resp_stream_reader, &redis_command).await;
+    }
+}
+
+async fn master_respond(stream: &mut RespStreamHandler, redis_command: &RedisCommand) {
+    match master_formulate_response(&redis_command) {
+        Some(responses) => {
+            for response in responses {
+                stream.write_all(&response)
+                    .await
+                    .expect("Failed to respond");
+                println!("Response: {:?}", String::from_utf8(response).unwrap_or(String::new()));
+            }
+        },
+        None => (),
+    }
+}
+
+fn master_formulate_response(redis_command: &RedisCommand) -> Option<Vec<Vec<u8>>> {
+    match redis_command {
+        RedisCommand::ReplconfAck(_) => {
+            Some(vec![serialize(&RespDatatype::Array(vec![
+                RespDatatype::BulkString(b"REPLCONF".to_vec()),
+                RespDatatype::BulkString(b"ACK".to_vec()),
+                RespDatatype::BulkString(b"0".to_vec())
+            ]))])
+        },
+        _ => None,
     }
 }

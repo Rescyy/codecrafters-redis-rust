@@ -16,6 +16,7 @@ pub enum RedisCommand {
     FullResync(Vec<u8>, Vec<u8>),
     ReplconfOk1,
     ReplconfOk2,
+    ReplconfAck(Vec<u8>),
     RespDatatype(RespDatatype),
     NullBulkString,
 }
@@ -154,7 +155,7 @@ async fn interpret_replconf(mut array_iterator: IntoIter<RespDatatype>) -> Optio
     while let Some(argument) = array_iterator.next() {
         match argument {
             RespDatatype::BulkString(argument) => {
-                match &argument[..] {
+                match &argument.to_ascii_lowercase()[..] {
                     b"listening-port" => {
                         let port = match array_iterator.next() {
                             Some(RespDatatype::BulkString(port)) => {
@@ -177,6 +178,16 @@ async fn interpret_replconf(mut array_iterator: IntoIter<RespDatatype>) -> Optio
                             _ => (),
                         };
                         return Some(RedisCommand::ReplconfOk2);
+                    },
+                    b"getack" => {
+                        let getack_arg = match array_iterator.next() {
+                            Some(RespDatatype::BulkString(getack_arg)) => getack_arg,
+                            _ => return make_error_command("Invalid argument for GETACK"),
+                        };
+                        if &getack_arg[..] == b"*" {
+                            return Some(RedisCommand::ReplconfAck(vec![b'0']))
+                        }
+                        return make_error_command("Invalid argument for GETACK")
                     }
                     _ => (),
                 }
