@@ -43,10 +43,6 @@ impl RespStreamHandler {
         Self {stream, buf: Vec::new(), cursor: 0}
     }
 
-    pub fn consume(self) -> TcpStream {
-        self.stream
-    }
-
     pub async fn write_all(&mut self, buf: &[u8]) -> Result<(), Box<dyn Error>> {
         Ok(self.stream.write_all(buf).await?)
     }

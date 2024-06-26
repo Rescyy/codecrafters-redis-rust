@@ -1,8 +1,9 @@
-use std::collections::LinkedList;
+use std::{collections::LinkedList, time::Duration};
 
-use tokio::{io::AsyncWriteExt, net::TcpStream, sync::Mutex};
+use tokio::time::sleep;
+use tokio::{io::AsyncWriteExt, sync::Mutex, time::Instant};
 
-use crate::RedisCommand;
+use crate::{serialize, RedisCommand, RespDatatype, RespStreamHandler, OK_STRING};
 
 lazy_static! {
     static ref REPLICAS: Mutex<LinkedList<Replica>> = Mutex::new(LinkedList::new());
@@ -57,22 +58,22 @@ impl ReplicaIdentifier {
 }
 
 pub struct Replica {
-    stream: TcpStream,
+    stream: RespStreamHandler,
 }
 
 impl Replica {
-    async fn new(stream: TcpStream) {
+    async fn new(stream: RespStreamHandler) {
         let mut replicas = REPLICAS.lock().await;
         replicas.push_back(Replica {stream});
     }
 
     async fn give_task(&mut self, replica_task: &ReplicaTask) {
         self.stream.write_all(&replica_task.task_command[..]).await.unwrap();
-        self.stream.flush().await.unwrap();
+        self.stream.stream.flush().await.unwrap();
     }
 }
 
-pub async fn handle_replica(stream: TcpStream) {
+pub async fn handle_replica(stream: RespStreamHandler) {
     println!("Accepted replica connection.");
     Replica::new(stream).await;
     loop {
@@ -97,14 +98,38 @@ pub async fn push_to_replicas(replica_task: ReplicaTask) {
     // });
 }
 
+pub async fn wait_to_replicas(numreplicas: usize, timeout: usize) -> usize {
+    
+    let start = Instant::now();
+    let mut replicas = REPLICAS.lock().await;
+    let mut num_replies = 0;
+    for replica in replicas.iter_mut() {
+        replica.stream.stream.write_all(&serialize(&RespDatatype::BulkString(b"WAIT".to_vec()))).await.unwrap();
+    }
+
+    let mut buf: Vec<u8> = Vec::new();
+    while start.elapsed() < Duration::from_millis(timeout.try_into().unwrap()) && num_replies < numreplicas {
+        for replica in replicas.iter_mut() {
+            match replica.stream.stream.try_read_buf(&mut buf) {
+                Ok(0) => continue,
+                Ok(_) => {
+                    if &buf[..] == OK_STRING {
+                        num_replies += 1;
+                    }
+                }
+                Err(_) => continue,
+            }
+        }
+        sleep(Duration::from_millis(1)).await;
+    }
+
+    return num_replies; 
+}
+
 pub fn start_replicas() {
     tokio::spawn(async {
         handle_replicas().await;
     });
-}
-
-pub async fn get_replicas_amount() -> usize {
-    REPLICAS.lock().await.len()
 }
 
 async fn handle_replicas() {

@@ -114,7 +114,7 @@ async fn handle_client(stream: TcpStream) {
     }
     
     if replica_identifier.is_synced() {
-        handle_replica(resp_stream_handler.consume()).await;
+        handle_replica(resp_stream_handler).await;
     }
 }
 
