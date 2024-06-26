@@ -126,7 +126,6 @@ async fn replica_interpret(resp_object: RespDatatype, buf: &Vec<u8>, replica_dat
                 b"SET" => interpret_set(array_iterator).await,
                 b"INFO" => interpret_info(array_iterator).await,
                 b"REPLCONF" => interpret_replconf(array_iterator, &replica_data).await,
-                b"WAIT" => Some(RedisCommand::Ok),
                 _ => return make_error_command(format!("Unknown command received {:?}", command)),
             }
         },

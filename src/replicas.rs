@@ -3,7 +3,7 @@ use std::{collections::LinkedList, time::Duration};
 use tokio::time::sleep;
 use tokio::{io::AsyncWriteExt, sync::Mutex, time::Instant};
 
-use crate::{serialize, RedisCommand, RespDatatype, RespStreamHandler, OK_STRING};
+use crate::{RedisCommand, RespStreamHandler};
 
 lazy_static! {
     static ref REPLICAS: Mutex<LinkedList<Replica>> = Mutex::new(LinkedList::new());
@@ -103,9 +103,9 @@ pub async fn wait_to_replicas(numreplicas: usize, timeout: usize) -> usize {
     let start = Instant::now();
     let mut replicas = REPLICAS.lock().await;
     let mut num_replies = 0;
-    let wait_command = serialize(&RespDatatype::Array(vec![RespDatatype::BulkString(b"WAIT".to_vec())]));
+    let replconf_getack: &[u8] = b"*3\r\n$8\r\nREPLCONF\r\n$3\r\nGETACK\r\n$1\r\n*\r\n";
     for replica in replicas.iter_mut() {
-        replica.stream.stream.write_all(&wait_command).await.unwrap();
+        replica.stream.stream.write_all(&replconf_getack).await.unwrap();
     }
 
     let mut buf: Vec<u8> = Vec::new();
@@ -114,9 +114,10 @@ pub async fn wait_to_replicas(numreplicas: usize, timeout: usize) -> usize {
             match replica.stream.stream.try_read_buf(&mut buf) {
                 Ok(0) => continue,
                 Ok(_) => {
-                    if &buf[..] == OK_STRING {
+                    if buf.starts_with(b"*3\r\n$8\r\nREPLCONF\r\n$3\r\nGETACK\r\n$1\r\n") {
                         num_replies += 1;
                     }
+                    buf.clear();
                 }
                 Err(_) => continue,
             }
