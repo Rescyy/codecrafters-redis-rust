@@ -1,9 +1,8 @@
-use std::str::Split;
 use std::vec::IntoIter;
 use format_bytes::format_bytes;
 
 use crate::resp_handler::RespDatatype;
-use crate::{database::*, is_valid_master_replid, push_to_replicas, ReplicaTask};
+use crate::{database::*, push_to_replicas, ReplicaTask};
 
 #[allow(dead_code)]
 #[derive(Debug)]
