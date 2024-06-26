@@ -76,7 +76,6 @@ pub async fn handle_replica(stream: TcpStream) {
     println!("Accepted replica connection.");
     Replica::new(stream).await;
     loop {
-        // do replica stuff maybe
         break;
     }
 }
@@ -102,6 +101,10 @@ pub fn start_replicas() {
     tokio::spawn(async {
         handle_replicas().await;
     });
+}
+
+pub async fn get_replicas_amount() -> usize {
+    REPLICAS.lock().await.len()
 }
 
 async fn handle_replicas() {
