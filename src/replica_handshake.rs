@@ -111,11 +111,11 @@ async fn master_respond(stream: &mut RespStreamHandler, redis_command: &RedisCom
 
 fn master_formulate_response(redis_command: &RedisCommand) -> Option<Vec<Vec<u8>>> {
     match redis_command {
-        RedisCommand::ReplconfAck(_) => {
+        RedisCommand::ReplconfAck(ack_arg) => {
             Some(vec![serialize(&RespDatatype::Array(vec![
                 RespDatatype::BulkString(b"REPLCONF".to_vec()),
                 RespDatatype::BulkString(b"ACK".to_vec()),
-                RespDatatype::BulkString(b"0".to_vec())
+                RespDatatype::BulkString(ack_arg.to_owned())
             ]))])
         },
         _ => None,
