@@ -2,7 +2,7 @@ use std::vec::IntoIter;
 use format_bytes::format_bytes;
 
 use crate::resp_handler::RespDatatype;
-use crate::{database::*, push_to_replicas, show, ReplicaTask};
+use crate::{database::*, parse_vec_u8, push_to_replicas, show, ReplicaTask};
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -47,8 +47,8 @@ pub async fn interpret(resp_object: RespDatatype, buf: &Vec<u8>) -> Option<Redis
                 b"INFO" => interpret_info(array_iterator).await,
                 b"REPLCONF" => interpret_replconf(array_iterator).await,
                 b"PSYNC" => interpret_psync(array_iterator).await,
-                // b"FULLRESYNC" => interpret_fullresync(array_iterator).await,
-                _ => return make_error_command(format!("Unknown command received {:?}", show(&buf[..]))),
+                b"WAIT" => interpret_wait(array_iterator).await,
+                _ => return make_error_command(format!("Unknown command received {:?}", show(&command))),
             }
         },
         _ => return None,
@@ -206,6 +206,29 @@ async fn interpret_psync(mut array_iterator: IntoIter<RespDatatype>) -> Option<R
         return Some(RedisCommand::FullResync(format_bytes!(b"FULLRESYNC {} {}", repl_id, repl_offset), empty_file_payload));
     }
     todo!();
+}
+
+#[allow(unused)]
+async fn interpret_wait(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
+    let numreplicas = match array_iterator.next() {
+        Some(RespDatatype::BulkString(numreplicas)) => {
+            match parse_vec_u8::<usize>(numreplicas) {
+                Ok(numreplicas) => numreplicas,
+                _ => return make_error_command("Invalid numreplicas argument for wait command given.")
+            }
+        },
+        _ => return make_error_command("No numreplicas argument for WAIT command given.")
+    };
+    let timeout = match array_iterator.next() {
+        Some(RespDatatype::BulkString(timeout)) => {
+            match parse_vec_u8::<usize>(timeout) {
+                Ok(timeout) => timeout,
+                _ => return make_error_command("Invalid timeout argument for wait command given.")
+            }
+        },
+        _ => return make_error_command("No timeout argument for WAIT command given.")
+    };
+    Some(RedisCommand::RespDatatype(RespDatatype::Integer(0)))
 }
 
 #[inline]
