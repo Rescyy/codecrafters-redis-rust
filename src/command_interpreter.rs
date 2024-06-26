@@ -52,14 +52,6 @@ pub async fn interpret(resp_object: RespDatatype, buf: &Vec<u8>) -> Option<Redis
                 _ => return make_error_command(format!("Unknown command received {:?}", command)),
             }
         },
-        RespDatatype::SimpleString(string) => {
-            let mut split: Split<&str> = string.trim().split(" ");
-            match split.next() {
-                Some("FULLRESYNC") => interpret_fullresync(split).await,
-                Some(command) => make_error_command(format!("Unknown command received: {:?}", command)),
-                _ => make_error_command(format!("Unknown command received."),)
-            }
-        },
         _ => return None,
     }
 }
@@ -217,29 +209,6 @@ async fn interpret_psync(mut array_iterator: IntoIter<RespDatatype>) -> Option<R
     todo!();
 }
 
-async fn interpret_fullresync<'a>(mut array_iterator: Split<'_, &str>) -> Option<RedisCommand> {
-    let master_replid = match array_iterator.next() {
-        Some(master_replid) => {
-            if is_valid_master_replid(master_replid.as_bytes()) {
-                master_replid.as_bytes().to_vec()
-            } else {
-                return make_error_command("Invalid master replid")
-            }
-        },
-        _ => return make_error_command("Invalid master replid"),
-    };
-    let master_repl_offset = match array_iterator.next() {
-        Some(master_repl_offset) => {
-            match master_repl_offset.parse::<u64>() {
-                Ok(master_repl_offset) => master_repl_offset,
-                Err(_) => return make_error_command("Invalid master repl offset"),
-            };
-            master_repl_offset.as_bytes().to_vec()
-        },
-        _ => return make_error_command("Invalid master repl offset"),
-    };
-    return Some(RedisCommand::FullResync(master_replid, master_repl_offset))
-}
 #[inline]
 fn make_error_command<T: ToString>(string: T) -> Option<RedisCommand> {
     return Some(RedisCommand::Error(string.to_string()));
