@@ -3,7 +3,7 @@ use std::{collections::LinkedList, time::Duration};
 use tokio::time::sleep;
 use tokio::{io::AsyncWriteExt, sync::Mutex, time::Instant};
 
-use crate::{RedisCommand, RespStreamHandler};
+use crate::{show, RedisCommand, RespStreamHandler};
 
 lazy_static! {
     static ref REPLICAS: Mutex<LinkedList<Replica>> = Mutex::new(LinkedList::new());
@@ -57,6 +57,7 @@ impl ReplicaIdentifier {
     }
 }
 
+#[derive(Debug)]
 pub struct Replica {
     stream: RespStreamHandler,
 }
@@ -109,13 +110,14 @@ pub async fn wait_to_replicas(numreplicas: usize, timeout: usize) -> usize {
     }
 
     let mut buf: Vec<u8> = Vec::new();
-    while start.elapsed() < Duration::from_millis(timeout.try_into().unwrap()) && num_replies < numreplicas {
+    while start.elapsed() < Duration::from_millis(timeout.try_into().unwrap()) && num_replies <= numreplicas {
         for replica in replicas.iter_mut() {
             match replica.stream.stream.try_read_buf(&mut buf) {
                 Ok(0) => continue,
                 Ok(_) => {
                     if buf.starts_with(b"*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n") {
                         num_replies += 1;
+                        dbg!(replica, num_replies, show(&buf));
                     }
                 }
                 Err(_) => continue,
