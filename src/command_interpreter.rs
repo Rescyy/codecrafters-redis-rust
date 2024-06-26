@@ -3,7 +3,7 @@ use std::vec::IntoIter;
 use format_bytes::format_bytes;
 
 use crate::resp_handler::RespDatatype;
-use crate::{database::*, is_valid_master_replid, push_to_slaves, SlaveTask};
+use crate::{database::*, is_valid_master_replid, push_to_replicas, ReplicaTask};
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -39,7 +39,7 @@ pub async fn interpret(resp_object: RespDatatype, buf: &Vec<u8>) -> Option<Redis
                 b"SET" => {
                     let command = interpret_set(array_iterator).await;
                     if let Some(_) = command {
-                        push_to_slaves(SlaveTask::new(buf.clone())).await;
+                        push_to_replicas(ReplicaTask::new(buf.clone())).await;
                     }
                     command
                 },

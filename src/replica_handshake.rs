@@ -10,10 +10,7 @@ lazy_static! {
 pub async fn send_handshake(master_host: &String, master_port: &String, slave_port: &String) -> Result<(), Box<dyn std::error::Error>> {
     let stream = TcpStream::connect(format!("{master_host}:{master_port}")).await?;
     let mut resp_stream_handler = RespStreamHandler::new(stream);
-    // let mut buf: Vec<u8> = Vec::new();
-    // resp_stream_handler.write_all(&PING_COMMAND[..]).await?;
-    // resp_stream_handler.refill(3).await?;
-    // println!("Passed");
+
     resp_stream_handler.write_all(&PING_COMMAND[..]).await?;
     let (_, buf) = resp_stream_handler.deserialize_stream().await?;
     if &buf[..] != PONG_STRING {

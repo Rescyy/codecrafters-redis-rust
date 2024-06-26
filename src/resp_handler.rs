@@ -35,12 +35,12 @@ pub enum RespDatatype {
 pub struct RespStreamHandler {
     pub stream: TcpStream,
     buf: Vec<u8>,
-    index: usize,
+    cursor: usize,
 }
 
 impl RespStreamHandler {
     pub fn new(stream: TcpStream) -> Self {
-        Self {stream, buf: Vec::new(), index: 0}
+        Self {stream, buf: Vec::new(), cursor: 0}
     }
 
     pub fn consume(self) -> TcpStream {
@@ -84,28 +84,31 @@ impl RespStreamHandler {
         return Ok(&self.buf[start..end])
     }
 
+    // Advances internal cursor
     async fn get_n(&mut self, amount: usize) -> Result<&[u8], Box<dyn Error>> {
-        let index = self.index;
-        self.index += amount;
-        return Ok(self.get_slice(index, self.index).await?)
+        let index = self.cursor;
+        self.cursor += amount;
+        return Ok(self.get_slice(index, self.cursor).await?)
     }
 
+    // Advances internal cursor
     async fn get_n_until_crnl(&mut self, amount: usize) -> Result<&[u8], Box<dyn Error>> {
-        if self.get_slice(self.index+amount, self.index+amount+2).await? == b"\r\n" {
-            let index = self.index;
-            self.index += amount+2;
+        if self.get_slice(self.cursor+amount, self.cursor+amount+2).await? == b"\r\n" {
+            let index = self.cursor;
+            self.cursor += amount+2;
             return Ok(self.get_slice(index, index+amount).await?)
         }
         return Err(Box::from(anyhow!("Bulk String did not end with \"\\r\\n\"")))
     }
 
+    // Advances internal cursor
     async fn get_until_crnl(&mut self) -> Result<&[u8], Box<dyn Error>> {
-        let mut last_index = self.index;
+        let mut last_index = self.cursor;
         loop {
             self.refill(3).await?;
             for i in last_index..self.buf.len()-1 {
                 if &self.buf[i..i+2] == b"\r\n" {
-                    self.index = i+2;
+                    self.cursor = i+2;
                     return Ok(&self.buf[last_index..i])
                 }
             } 
@@ -113,10 +116,11 @@ impl RespStreamHandler {
         }
     }
 
+    // Gets bytes until the internal cursor
     #[inline]
     fn get_drained(&mut self) -> Vec<u8> {
-        let index = self.index;
-        self.index = 0;
+        let index = self.cursor;
+        self.cursor = 0;
         self.buf.drain(..index).collect()
     }
 

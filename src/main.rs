@@ -16,8 +16,8 @@ use utils::*;
 mod replica_handshake;
 use replica_handshake::*;
 
-mod slaves;
-use slaves::*;
+mod replicas;
+use replicas::*;
 
 use tokio::net::{TcpListener, TcpStream};
 use std::env;
@@ -70,7 +70,7 @@ async fn main() {
     if role == b"master" {
         set_value(b"master_replid", &generate_master_replid()).await;
         set_value(b"master_repl_offset", b"0").await;
-        start_slaves();
+        start_replicas();
     }
 
     loop {
@@ -90,7 +90,7 @@ async fn main() {
 async fn handle_client(stream: TcpStream) {
     println!("Accepted new connection! Handling client");
     let mut resp_stream_handler = RespStreamHandler::new(stream);
-    let mut slave_identifier: SlaveIdentifier = SlaveIdentifier::init();
+    let mut replica_identifier: ReplicaIdentifier = ReplicaIdentifier::init();
     loop {
         if resp_stream_handler.is_shutdown().await {
             break;
@@ -108,13 +108,13 @@ async fn handle_client(stream: TcpStream) {
         println!("Responding");
         respond(&mut resp_stream_handler, &redis_command).await;
 
-        if slave_identifier.is_slave(&redis_command) {
+        if replica_identifier.is_replica(&redis_command) {
             break;
         }
     }
     
-    if slave_identifier.is_synced() {
-        handle_slave(resp_stream_handler.consume()).await;
+    if replica_identifier.is_synced() {
+        handle_replica(resp_stream_handler.consume()).await;
     }
 }
 
