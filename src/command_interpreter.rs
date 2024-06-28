@@ -232,7 +232,7 @@ async fn interpret_wait(mut array_iterator: IntoIter<RespDatatype>) -> Option<Re
     };
     let numreplies = wait_to_replicas(start, numreplicas, timeout).await;
     dbg!(numreplies);
-    Some(RedisCommand::RespDatatype(RespDatatype::Integer(numreplicas.try_into().unwrap())))
+    Some(RedisCommand::RespDatatype(RespDatatype::Integer(numreplies.try_into().unwrap())))
 }
 
 #[inline]
