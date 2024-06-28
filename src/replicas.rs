@@ -147,7 +147,7 @@ pub async fn wait_to_replicas(start: Instant, numreplicas: usize, timeout: usize
                                 }
                                 match &array[1] {
                                     RespDatatype::BulkString(ack) => {
-                                        if &ack[..] != b"ACL" {continue}
+                                        if &ack[..] != b"ACK" {continue}
                                     }
                                     _ => continue,
                                 }
