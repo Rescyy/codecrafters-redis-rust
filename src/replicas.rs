@@ -108,6 +108,7 @@ pub async fn wait_to_replicas(start: Instant, numreplicas: usize, mut timeout: u
     if timeout > 0 {
         timeout -= 1;
     }
+    let timeout: u64 = timeout.try_into().unwrap();
     let mut replicas = REPLICAS.lock().await;
     let mut num_replies = 0;
     let replconf_getack: &[u8] = b"*3\r\n$8\r\nREPLCONF\r\n$6\r\nGETACK\r\n$1\r\n*\r\n";
@@ -118,8 +119,9 @@ pub async fn wait_to_replicas(start: Instant, numreplicas: usize, mut timeout: u
     dbg!(&replicas);
     dbg!(start.elapsed(), timeout);
 
-    while start.elapsed() < Duration::from_millis(timeout.try_into().unwrap()) || timeout == 0 {
+    while start.elapsed() < Duration::from_millis(timeout) || timeout == 0 {
         for replica in replicas.iter_mut() {
+            dbg!(&replica);
             match replica.stream.stream.try_read_buf(&mut buf) {
                 Ok(0) => continue,
                 Ok(_) => {
