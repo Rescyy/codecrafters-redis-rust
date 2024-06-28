@@ -113,7 +113,7 @@ pub async fn wait_to_replicas(start: Instant, numreplicas: usize, timeout: usize
     let replconf_getack: &[u8] = b"*3\r\n$8\r\nREPLCONF\r\n$6\r\nGETACK\r\n$1\r\n*\r\n";
     let mut busy_replicas: Vec<&mut Replica> = Vec::new();
     for replica in replicas.iter_mut() {
-        dbg!(&replica);
+        dbg!(&replica, num_replies);
         if replica.offset == 0 {
             num_replies += 1;
             continue
