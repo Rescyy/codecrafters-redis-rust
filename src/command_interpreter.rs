@@ -1,5 +1,6 @@
 use std::vec::IntoIter;
 use format_bytes::format_bytes;
+use tokio::time::Instant;
 
 use crate::resp_handler::RespDatatype;
 use crate::{database::*, parse_vec_u8, push_to_replicas, show, wait_to_replicas, ReplicaTask};
@@ -210,6 +211,7 @@ async fn interpret_psync(mut array_iterator: IntoIter<RespDatatype>) -> Option<R
 
 #[allow(unused)]
 async fn interpret_wait(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
+    let start = Instant::now();
     let numreplicas = match array_iterator.next() {
         Some(RespDatatype::BulkString(numreplicas)) => {
             match parse_vec_u8::<usize>(numreplicas) {
@@ -228,7 +230,8 @@ async fn interpret_wait(mut array_iterator: IntoIter<RespDatatype>) -> Option<Re
         },
         _ => return make_error_command("No timeout argument for WAIT command given.")
     };
-    let numreplies = wait_to_replicas(numreplicas, timeout).await;
+    let numreplies = wait_to_replicas(start, numreplicas, timeout).await;
+    dbg!(numreplies);
     Some(RedisCommand::RespDatatype(RespDatatype::Integer(numreplicas.try_into().unwrap())))
 }
 

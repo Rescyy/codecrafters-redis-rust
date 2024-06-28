@@ -103,12 +103,11 @@ pub async fn push_to_replicas(replica_task: ReplicaTask) {
     // });
 }
 
-pub async fn wait_to_replicas(numreplicas: usize, mut timeout: usize) -> usize {
+pub async fn wait_to_replicas(start: Instant, numreplicas: usize, mut timeout: usize) -> usize {
     
     if timeout > 0 {
         timeout -= 1;
     }
-    let start = Instant::now();
     let mut replicas = REPLICAS.lock().await;
     let mut num_replies = 0;
     let replconf_getack: &[u8] = b"*3\r\n$8\r\nREPLCONF\r\n$6\r\nGETACK\r\n$1\r\n*\r\n";
