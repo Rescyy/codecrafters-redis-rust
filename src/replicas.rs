@@ -112,7 +112,7 @@ pub async fn wait_to_replicas(numreplicas: usize, timeout: usize) -> usize {
     }
 
     let mut buf: Vec<u8> = Vec::new();
-    while start.elapsed() < Duration::from_millis(timeout.try_into().unwrap()) || num_replies <= numreplicas {
+    while start.elapsed() < Duration::from_millis(timeout.try_into().unwrap()) && num_replies <= numreplicas {
         for replica in replicas.iter_mut() {
             match replica.stream.stream.try_read_buf(&mut buf) {
                 Ok(0) => continue,
