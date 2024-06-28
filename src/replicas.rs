@@ -114,8 +114,9 @@ pub async fn wait_to_replicas(start: Instant, numreplicas: usize, mut timeout: u
     for replica in replicas.iter_mut() {
         replica.stream.stream.write_all(&replconf_getack).await.unwrap();
     }
-
     let mut buf: Vec<u8> = Vec::new();
+    dbg!(&replicas);
+
     while start.elapsed() < Duration::from_millis(timeout.try_into().unwrap()) || timeout == 0 {
         for replica in replicas.iter_mut() {
             match replica.stream.stream.try_read_buf(&mut buf) {
