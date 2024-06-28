@@ -1,10 +1,9 @@
 use std::{collections::LinkedList, time::Duration};
 
-use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tokio::{io::AsyncWriteExt, sync::Mutex, time::Instant};
 
-use crate::{show, RedisCommand, RespDatatype, RespStreamHandler};
+use crate::{show, RedisCommand, RespStreamHandler};
 
 lazy_static! {
     static ref REPLICAS: Mutex<LinkedList<Replica>> = Mutex::new(LinkedList::new());
@@ -61,13 +60,16 @@ impl ReplicaIdentifier {
 #[derive(Debug)]
 pub struct Replica {
     stream: RespStreamHandler,
-    offset: usize,
+    // offset: usize,
 }
 
 impl Replica {
     async fn new(stream: RespStreamHandler) {
         let mut replicas = REPLICAS.lock().await;
-        replicas.push_back(Replica {stream, offset: 0});
+        replicas.push_back(Replica {
+            stream, 
+            // offset: 0
+        });
     }
 
     async fn give_task(&mut self, replica_task: &ReplicaTask) {
@@ -101,8 +103,11 @@ pub async fn push_to_replicas(replica_task: ReplicaTask) {
     // });
 }
 
-pub async fn wait_to_replicas(numreplicas: usize, timeout: usize) -> usize {
+pub async fn wait_to_replicas(numreplicas: usize, mut timeout: usize) -> usize {
     
+    if timeout > 0 {
+        timeout -= 1;
+    }
     let start = Instant::now();
     let mut replicas = REPLICAS.lock().await;
     let mut num_replies = 0;
@@ -112,7 +117,7 @@ pub async fn wait_to_replicas(numreplicas: usize, timeout: usize) -> usize {
     }
 
     let mut buf: Vec<u8> = Vec::new();
-    while (start.elapsed() < Duration::from_millis(timeout.try_into().unwrap())) {
+    while start.elapsed() < Duration::from_millis(timeout.try_into().unwrap()) || timeout == 0 {
         for replica in replicas.iter_mut() {
             match replica.stream.stream.try_read_buf(&mut buf) {
                 Ok(0) => continue,
