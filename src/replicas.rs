@@ -3,7 +3,7 @@ use std::{collections::LinkedList, time::Duration};
 use tokio::time::sleep;
 use tokio::{io::AsyncWriteExt, sync::Mutex, time::Instant};
 
-use crate::{RedisCommand, RespStreamHandler};
+use crate::{deserialize, RedisCommand, RespDatatype, RespStreamHandler};
 
 lazy_static! {
     static ref REPLICAS: Mutex<LinkedList<Replica>> = Mutex::new(LinkedList::new());
@@ -126,22 +126,59 @@ pub async fn wait_to_replicas(start: Instant, numreplicas: usize, timeout: usize
     if num_replies >= numreplicas {
         return num_replies;
     }
+    let mut remove_indeces: Vec<bool> = vec![true; busy_replicas.len()];
     while start.elapsed() < Duration::from_millis(timeout) || timeout == 0 {
-        for replica in busy_replicas.iter_mut() {
-            match replica.stream.stream.try_read_buf(&mut buf) {
-                Ok(0) => continue,
-                Ok(_) => {
-                    if buf.starts_with(b"*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n") {
-                        num_replies += 1;
+        for i in 0..busy_replicas.len() {
+            if remove_indeces[i] {
+                let replica = &busy_replicas[i];
+                match replica.stream.stream.try_read_buf(&mut buf) {
+                    Ok(0) => continue,
+                    Ok(_) => {
+                        match deserialize(&buf) {
+                            Some(RespDatatype::Array(array)) => {
+                                if array.len() != 3 {
+                                    continue;
+                                }
+                                match &array[0] {
+                                    RespDatatype::BulkString(replconf) => {
+                                        if &replconf[..] != b"REPLCONF" {continue}
+                                    }
+                                    _ => continue,
+                                }
+                                match &array[1] {
+                                    RespDatatype::BulkString(ack) => {
+                                        if &ack[..] != b"ACL" {continue}
+                                    }
+                                    _ => continue,
+                                }
+                                match &array[2] {
+                                    RespDatatype::BulkString(offset) => {
+                                        let offset  = match String::from_utf8(offset.clone()) {
+                                            Ok(offset) => offset,
+                                            _ => continue,
+                                        };
+                                        let offset = match offset.parse::<usize>() {
+                                            Ok(offset) => offset,
+                                            _ => continue,
+                                        };
+                                        if offset > replica.offset {
+                                            num_replies += 1;
+                                            remove_indeces[i] = false;
+                                        }
+                                    }
+                                    _ => continue,
+                                }
+                            },
+                            _ => (),
+                        }
                     }
+                    Err(_) => continue,
                 }
-                Err(_) => continue,
+                buf.clear();
+                if num_replies == numreplicas {
+                    break;
+                }
             }
-            buf.clear();
-        }
-        if num_replies >= numreplicas {
-            num_replies = numreplicas;
-            break;
         }
         sleep(Duration::from_millis(1)).await;
     }
