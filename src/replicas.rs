@@ -122,6 +122,7 @@ pub async fn wait_to_replicas(start: Instant, numreplicas: usize, mut timeout: u
             match replica.stream.stream.try_read_buf(&mut buf) {
                 Ok(0) => continue,
                 Ok(_) => {
+                    dbg!(&buf);
                     if buf.starts_with(b"*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n") {
                         num_replies += 1;
                         dbg!(replica, num_replies, show(&buf));
