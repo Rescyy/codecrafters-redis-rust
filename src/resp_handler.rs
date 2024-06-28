@@ -131,14 +131,14 @@ impl RespStreamHandler {
         Ok(rdb)
     }
 
-    pub async fn deserialize_stream(&mut self) -> Result<(RespDatatype, Vec<u8>), Box<dyn Error>> {
-        let resp_object = self.deserialize_stream_recursive().await?;
+    pub async fn deserialize(&mut self) -> Result<(RespDatatype, Vec<u8>), Box<dyn Error>> {
+        let resp_object = self.deserialize_recursive().await?;
         let drained: Vec<u8> = self.get_drained();
         return Ok((resp_object, drained))
     }
 
     #[async_recursion]
-    async fn deserialize_stream_recursive(&mut self) -> Result<RespDatatype, Box<dyn Error>> {
+    async fn deserialize_recursive(&mut self) -> Result<RespDatatype, Box<dyn Error>> {
 
         let splice = self.get_until_crnl().await?;
         return match splice[0] {
@@ -162,13 +162,26 @@ impl RespStreamHandler {
                 let array_length: usize = array_length.try_into()?;
                 let mut array: Vec<RespDatatype> = Vec::with_capacity(array_length);
                 for _ in 0..array_length {
-                    array.push(self.deserialize_stream_recursive().await?)
+                    array.push(self.deserialize_recursive().await?)
                 }
                 Ok(RespDatatype::Array(array))
             },
             _ => Err(Box::from(anyhow!("Invalid First Byte"))),
         }
     }
+
+    // pub fn try_deserialize(&mut self) -> Result<(RespDatatype, Vec<u8>), Box<dyn Error>> {
+
+
+
+    //     todo!();
+    // }
+
+    // pub fn try_deserialize_recursive(&mut self) -> Result<RespDatatype, Box<dyn Error>> {
+
+
+    //     todo!();
+    // }
 }
 
 pub fn serialize(resp_object: &RespDatatype) -> Vec<u8> {

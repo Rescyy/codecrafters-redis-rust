@@ -97,7 +97,7 @@ async fn handle_client(stream: TcpStream) {
         }
     
         println!("Deserializing");
-        let (resp_object, collected) = resp_stream_handler.deserialize_stream().await
+        let (resp_object, collected) = resp_stream_handler.deserialize().await
         .expect("Failed to deserialize RESP object: ");
 
         println!("Interpreting");

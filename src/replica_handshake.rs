@@ -15,7 +15,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     let mut resp_stream_handler = RespStreamHandler::new(stream);
 
     resp_stream_handler.write_all(&PING_COMMAND[..]).await?;
-    let (_, buf) = resp_stream_handler.deserialize_stream().await?;
+    let (_, buf) = resp_stream_handler.deserialize().await?;
     if &buf[..] != PONG_STRING {
         return Err(Box::from(anyhow!("Didn't receive PING response")));
     }
@@ -30,7 +30,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
         )
     );
     resp_stream_handler.write_all(&replconf_command1).await?;
-    let (_, buf) = resp_stream_handler.deserialize_stream().await?;
+    let (_, buf) = resp_stream_handler.deserialize().await?;
     if &buf[..] != OK_STRING {
         return Err(Box::from(anyhow!("Didn't receive OK response")));
     }
@@ -45,7 +45,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
         )
     );
     resp_stream_handler.write_all(&replconf_command2).await?;
-    let (_, buf) = resp_stream_handler.deserialize_stream().await?;
+    let (_, buf) = resp_stream_handler.deserialize().await?;
     if &buf[..] != OK_STRING {
         return Err(Box::from(anyhow!("Didn't receive OK response")));
     }
@@ -60,7 +60,7 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
         )
     );
     resp_stream_handler.write_all(&psync_command).await?;
-    let (resp_object, buf) = resp_stream_handler.deserialize_stream().await?;
+    let (resp_object, buf) = resp_stream_handler.deserialize().await?;
 
     let replica_data = ReplicaData::new();
     match replica_interpret(resp_object, &buf, &replica_data).await {
@@ -98,7 +98,7 @@ async fn handle_master(mut resp_stream_reader: RespStreamHandler, mut replica_da
         }
     
         println!("Deserializing");
-        let (resp_object, collected) = resp_stream_reader.deserialize_stream().await
+        let (resp_object, collected) = resp_stream_reader.deserialize().await
         .expect("Failed to deserialize RESP object");
 
         println!("Interpreting");
