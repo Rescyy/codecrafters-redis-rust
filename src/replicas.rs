@@ -116,6 +116,7 @@ pub async fn wait_to_replicas(start: Instant, numreplicas: usize, mut timeout: u
     }
     let mut buf: Vec<u8> = Vec::new();
     dbg!(&replicas);
+    dbg!(start.elapsed(), timeout);
 
     while start.elapsed() < Duration::from_millis(timeout.try_into().unwrap()) || timeout == 0 {
         for replica in replicas.iter_mut() {
