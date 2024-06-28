@@ -60,7 +60,7 @@ impl ReplicaIdentifier {
 #[derive(Debug)]
 pub struct Replica {
     stream: RespStreamHandler,
-    // offset: usize,
+    offset: usize,
 }
 
 impl Replica {
@@ -68,12 +68,14 @@ impl Replica {
         let mut replicas = REPLICAS.lock().await;
         replicas.push_back(Replica {
             stream, 
-            // offset: 0
+            offset: 0
         });
     }
 
     async fn give_task(&mut self, replica_task: &ReplicaTask) {
-        self.stream.write_all(&replica_task.task_command[..]).await.unwrap();
+        let task_command = &replica_task.task_command[..];
+        self.offset += task_command.len();
+        self.stream.write_all(task_command).await.unwrap();
         self.stream.stream.flush().await.unwrap();
     }
 }
@@ -109,22 +111,27 @@ pub async fn wait_to_replicas(start: Instant, numreplicas: usize, timeout: usize
     let mut replicas = REPLICAS.lock().await;
     let mut num_replies = 0;
     let replconf_getack: &[u8] = b"*3\r\n$8\r\nREPLCONF\r\n$6\r\nGETACK\r\n$1\r\n*\r\n";
+    let mut busy_replicas: Vec<&mut Replica> = Vec::new();
     for replica in replicas.iter_mut() {
-        dbg!(&replica);
+        if replica.offset == 0 {
+            num_replies += 1;
+            continue
+        }
         replica.stream.stream.write_all(&replconf_getack).await.unwrap_or(());
+        busy_replicas.push(replica);
     }
     let mut buf: Vec<u8> = Vec::new();
-    dbg!(start.elapsed(), timeout);
+    // dbg!(start.elapsed(), timeout);
 
     while start.elapsed() < Duration::from_millis(timeout) || timeout == 0 {
-        for replica in replicas.iter_mut() {
+        for replica in busy_replicas.iter_mut() {
             match replica.stream.stream.try_read_buf(&mut buf) {
                 Ok(0) => continue,
                 Ok(_) => {
                     dbg!(&buf);
                     if buf.starts_with(b"*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n") {
                         num_replies += 1;
-                        dbg!(replica, num_replies, show(&buf));
+                        // dbg!(replica, num_replies, show(&buf));
                     }
                 }
                 Err(_) => continue,
