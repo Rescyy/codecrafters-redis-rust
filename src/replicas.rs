@@ -103,17 +103,17 @@ pub async fn push_to_replicas(replica_task: ReplicaTask) {
     // });
 }
 
-pub async fn wait_to_replicas(start: Instant, numreplicas: usize, mut timeout: usize) -> usize {
+pub async fn wait_to_replicas(start: Instant, numreplicas: usize, timeout: usize) -> usize {
     
     let timeout: u64 = timeout.try_into().unwrap();
     let mut replicas = REPLICAS.lock().await;
     let mut num_replies = 0;
     let replconf_getack: &[u8] = b"*3\r\n$8\r\nREPLCONF\r\n$6\r\nGETACK\r\n$1\r\n*\r\n";
     for replica in replicas.iter_mut() {
-        replica.stream.stream.write_all(&replconf_getack).await.unwrap();
+        dbg!(&replica);
+        replica.stream.stream.write_all(&replconf_getack).await.unwrap_or(());
     }
     let mut buf: Vec<u8> = Vec::new();
-    dbg!(&replicas);
     dbg!(start.elapsed(), timeout);
 
     while start.elapsed() < Duration::from_millis(timeout) || timeout == 0 {
