@@ -169,19 +169,6 @@ impl RespStreamHandler {
             _ => Err(Box::from(anyhow!("Invalid First Byte"))),
         }
     }
-
-    // pub fn try_deserialize(&mut self) -> Result<(RespDatatype, Vec<u8>), Box<dyn Error>> {
-
-
-
-    //     todo!();
-    // }
-
-    // pub fn try_deserialize_recursive(&mut self) -> Result<RespDatatype, Box<dyn Error>> {
-
-
-    //     todo!();
-    // }
 }
 
 pub fn serialize(resp_object: &RespDatatype) -> Vec<u8> {
