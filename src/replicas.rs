@@ -105,9 +105,6 @@ pub async fn push_to_replicas(replica_task: ReplicaTask) {
 
 pub async fn wait_to_replicas(start: Instant, numreplicas: usize, mut timeout: usize) -> usize {
     
-    if timeout > 0 {
-        timeout -= 1;
-    }
     let timeout: u64 = timeout.try_into().unwrap();
     let mut replicas = REPLICAS.lock().await;
     let mut num_replies = 0;
@@ -121,7 +118,6 @@ pub async fn wait_to_replicas(start: Instant, numreplicas: usize, mut timeout: u
 
     while start.elapsed() < Duration::from_millis(timeout) || timeout == 0 {
         for replica in replicas.iter_mut() {
-            dbg!(&replica);
             match replica.stream.stream.try_read_buf(&mut buf) {
                 Ok(0) => continue,
                 Ok(_) => {
