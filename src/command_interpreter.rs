@@ -202,8 +202,8 @@ async fn interpret_psync(mut array_iterator: IntoIter<RespDatatype>) -> Option<R
         _ => return make_error_command("No repl_offset argument for PSYNC command given.")
     };
     if &repl_id[..] == b"?" && &repl_offset[..] == b"-1" {
-        let repl_id = get_value(b"master_replid").await.unwrap();
-        let repl_offset = get_value(b"master_repl_offset").await.unwrap();
+        let repl_id = get_config(b"master_replid").await.unwrap();
+        let repl_offset = get_config(b"master_repl_offset").await.unwrap();
         let empty_file_payload = hex::decode("524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2")
         .unwrap();
         return Some(RedisCommand::FullResync(format_bytes!(b"FULLRESYNC {} {}", repl_id, repl_offset), empty_file_payload));
