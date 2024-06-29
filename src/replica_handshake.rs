@@ -4,7 +4,7 @@ use std::str::Split;
 use std::vec::IntoIter;
 use format_bytes::format_bytes;
 
-use crate::{get_value, is_valid_master_replid, serialize, set_value, set_value_expiry, show, RedisCommand, RespDatatype, RespStreamHandler, OK_STRING, PONG_STRING};
+use crate::{get_value, is_valid_master_replid, serialize, set_config, set_value, set_value_expiry, show, RedisCommand, RespDatatype, RespStreamHandler, OK_STRING, PONG_STRING};
 
 lazy_static! {  
     static ref PING_COMMAND: Vec<u8> = serialize(&RespDatatype::Array(vec![RespDatatype::BulkString(b"PING".to_vec())]));
@@ -65,8 +65,8 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     let replica_data = ReplicaData::new();
     match replica_interpret(resp_object, &buf, &replica_data).await {
         Some(RedisCommand::FullResync(master_replid, master_repl_offset)) => {
-            set_value(b"master_replid", &master_replid).await;
-            set_value(b"master_repl_offset", &master_repl_offset).await;
+            set_config(b"master_replid", &master_replid).await;
+            set_config(b"master_repl_offset", &master_repl_offset).await;
         },
         _ => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC: {}", show(&buf[..])))),
     };
