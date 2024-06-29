@@ -62,6 +62,8 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
     resp_stream_handler.write_all(&psync_command).await?;
     let (resp_object, buf) = resp_stream_handler.deserialize().await?;
 
+    println!("PSYNC");
+
     let replica_data = ReplicaData::new();
     match replica_interpret(resp_object, &buf, &replica_data).await {
         Some(RedisCommand::FullResync(master_replid, master_repl_offset)) => {
@@ -71,7 +73,9 @@ pub async fn send_handshake(master_host: &String, master_port: &String, slave_po
         _ => return Err(Box::from(anyhow!("Couldn't deserialize response to PSYNC: {}", show(&buf[..])))),
     };
 
+    println!("RDB");
     resp_stream_handler.get_rdb().await?;
+    println!("RDB received");
 
     tokio::spawn(async move {handle_master(resp_stream_handler, replica_data).await});
 
@@ -250,7 +254,6 @@ async fn interpret_replconf(mut array_iterator: IntoIter<RespDatatype>, replica_
                             Some(RespDatatype::BulkString(getack_arg)) => getack_arg,
                             _ => return make_error_command("Invalid argument for GETACK"),
                         };
-                        println!("GETACK");
                         if &getack_arg[..] == b"*" {
                             return Some(RedisCommand::ReplconfAck(replica_data.bytes_processed.to_string().into_bytes()))
                         }
