@@ -133,9 +133,9 @@ impl RespStreamHandler {
     }
 
     pub async fn deserialize(&mut self) -> Result<(RespDatatype, Vec<u8>), Box<dyn Error>> {
-        println!("Deserializing");
+        // println!("Deserializing");
         let resp_object = self.deserialize_recursive().await?;
-        dbg!(&resp_object);
+        // dbg!(&resp_object);
         let drained: Vec<u8> = self.get_drained();
         return Ok((resp_object, drained))
     }

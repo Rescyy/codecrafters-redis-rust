@@ -35,7 +35,6 @@ async fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     println!("Logs from your program will appear here!");
 
-    let mut config = CONFIG.lock().await;
     let mut port = String::from("6379");
     let mut role: &[u8] = b"master";
     let mut master_host = String::from("localhost");
@@ -43,7 +42,7 @@ async fn main() {
     let mut args = env::args();
     let mut dir = String::from("./");
     let mut dbfilename = String::from("rdbfilename");
-
+    
     args.next();
     while let Some(flag) = args.next() {
         match flag.as_str() {
@@ -82,6 +81,7 @@ async fn main() {
     
     let listener = TcpListener::bind(format!("127.0.0.1:{port}")).await.expect("Couldn't start the server");
     
+    let mut config = CONFIG.lock().await;
     config.insert(b"port".to_vec(), port.into_bytes());
     config.insert(b"role".to_vec(), role.to_vec());
     config.insert(b"master_port".to_vec(), master_port.into_bytes());
