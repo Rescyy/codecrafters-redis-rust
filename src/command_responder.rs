@@ -49,5 +49,8 @@ fn formulate_response(redis_command: &RedisCommand) -> Option<Vec<Vec<u8>>> {
             ])
         },
         RedisCommand::ReplconfAck(_) => None,
+        RedisCommand::Config(name, value) => {
+            Some(vec![serialize(&RespDatatype::Array(vec![RespDatatype::BulkString(name.to_owned()), RespDatatype::BulkString(value.to_owned())]))])
+        },
     }
 }

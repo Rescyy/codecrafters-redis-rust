@@ -17,6 +17,7 @@ pub enum RedisCommand {
     ReplconfOk1,
     ReplconfOk2,
     ReplconfAck(Vec<u8>),
+    Config(Vec<u8>, Vec<u8>),
     RespDatatype(RespDatatype),
     NullBulkString,
 }
@@ -49,6 +50,7 @@ pub async fn interpret(resp_object: RespDatatype, buf: &Vec<u8>) -> Option<Redis
                 b"REPLCONF" => interpret_replconf(array_iterator).await,
                 b"PSYNC" => interpret_psync(array_iterator).await,
                 b"WAIT" => interpret_wait(array_iterator).await,
+                b"CONFIG" => interpret_config(array_iterator).await,
                 _ => return make_error_command(format!("Unknown command received {:?}", show(&command))),
             }
         },
@@ -233,6 +235,28 @@ async fn interpret_wait(mut array_iterator: IntoIter<RespDatatype>) -> Option<Re
     let numreplies = wait_to_replicas(start, numreplicas, timeout).await;
     dbg!(numreplies);
     Some(RedisCommand::RespDatatype(RespDatatype::Integer(numreplies.try_into().unwrap())))
+}
+
+async fn interpret_config(mut array_iterator: IntoIter<RespDatatype>) -> Option<RedisCommand> {
+    match array_iterator.next() {
+        Some(RespDatatype::BulkString(config_command)) => {
+            match &config_command.to_ascii_uppercase()[..] {
+                b"GET" => {
+                    match array_iterator.next() {
+                        Some(RespDatatype::BulkString(name)) => {
+                            match get_config(&name).await {
+                                Some(value) => return Some(RedisCommand::Config(name, value)),
+                                _ => return make_error_command("Config name not found."), 
+                            }
+                        },
+                        _ => return make_error_command("Invalid argument for config get command given."),
+                    }
+                },
+                _ => return make_error_command("Invalid argument for config command given."),
+            }
+        },
+        _ => return make_error_command("Invalid argument for config command given.")
+    }
 }
 
 #[inline]

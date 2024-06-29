@@ -20,24 +20,29 @@ mod replicas;
 use replicas::*;
 
 use tokio::net::{TcpListener, TcpStream};
-use std::env;
+use std::{env, path::Path};
 
 #[macro_use]
 extern crate lazy_static;
 
 const INCORRECT_FORMAT_PORT: &str = "Incorrect format for --port flag. Required format \"--port <PORT>\"";
 const INCORRECT_FORMAT_REPLICAOF: &str = "Incorrect format for --replicaof flag. Required format \"--replicaof <MASTER_HOST MASTER_PORT>\"";
+const INCORRECT_FORMAT_DIR: &str = "Incorrect format for --dir flag. Required format \"--replicaof <path>\"";
+const INCORRECT_FORMAT_DBFILENAME: &str = "Incorrect format --dbfilename flag. Required \"--dbfilename <name>.rdb\"";
 
 #[tokio::main]
 async fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     println!("Logs from your program will appear here!");
 
+    let mut config = CONFIG.lock().await;
     let mut port = String::from("6379");
     let mut role: &[u8] = b"master";
     let mut master_host = String::from("localhost");
     let mut master_port = String::from("6379");
     let mut args = env::args();
+    let mut dir = String::from("./");
+    let mut dbfilename = String::from("rdbfilename");
 
     args.next();
     while let Some(flag) = args.next() {
@@ -57,22 +62,39 @@ async fn main() {
                 }
                 send_handshake(&master_host, &master_port, &port).await.expect("Handshake failed");
             },
+            "--dir" => {
+                let test_dir = args.next().expect(INCORRECT_FORMAT_DIR);
+                if Path::new(test_dir.as_str()).exists() {
+                    dir = test_dir;
+                } else {
+                    panic!("The directory given was not found")
+                }
+            },
+            "--dbfilename" => {
+                dbfilename = args.next().expect(INCORRECT_FORMAT_DBFILENAME);
+                if !dbfilename.ends_with(".rdb") {
+                    dbfilename.push_str(".rdb");
+                }
+            }
             flag => panic!("Unknown flag: \"{flag}\""),
         }
     }
-
+    
     let listener = TcpListener::bind(format!("127.0.0.1:{port}")).await.expect("Couldn't start the server");
-
-    set_value(b"port", port.as_bytes()).await;
-    set_value(b"role", role).await;
-    set_value(b"master_port", master_port.as_bytes()).await;
-    set_value(b"master_host", master_host.as_bytes()).await;
+    
+    config.insert(b"port".to_vec(), port.into_bytes());
+    config.insert(b"role".to_vec(), role.to_vec());
+    config.insert(b"master_port".to_vec(), master_port.into_bytes());
+    config.insert(b"master_host".to_vec(), master_host.into_bytes());
+    config.insert(b"dir".to_vec(), dir.into_bytes());
+    config.insert(b"dbfilename".to_vec(), dbfilename.into_bytes());
     if role == b"master" {
-        set_value(b"master_replid", &generate_master_replid()).await;
-        set_value(b"master_repl_offset", b"0").await;
+        config.insert(b"master_replid".to_vec(), generate_master_replid());
+        config.insert(b"master_repl_offset".to_vec(), vec![b'0']);
         start_replicas();
     }
 
+    drop(config);
     loop {
         let stream = listener.accept().await;
         
