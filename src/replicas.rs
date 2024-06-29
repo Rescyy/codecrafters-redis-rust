@@ -132,44 +132,37 @@ pub async fn wait_to_replicas(start: Instant, numreplicas: usize, timeout: usize
             if remove_indeces[i] {
                 buf.clear();
                 let replica = &busy_replicas[i];
-                match replica.stream.stream.try_read_buf(&mut buf) {
+                match busy_replicas[i].stream.stream.try_read_buf(&mut buf) {
                     Ok(0) => continue,
                     Ok(_) => {
-                        dbg!(show(&buf[..]));
                         match deserialize(&buf) {
                             Some(RespDatatype::Array(array)) => {
-                                dbg!(&array);
                                 if array.len() != 3 {
                                     continue;
                                 }
                                 match &array[0] {
                                     RespDatatype::BulkString(replconf) => {
                                         if &replconf[..] != b"REPLCONF" {continue}
-                                        dbg!(show(replconf));
                                     }
                                     _ => continue,
                                 }
                                 match &array[1] {
                                     RespDatatype::BulkString(ack) => {
                                         if &ack[..] != b"ACK" {continue}
-                                        dbg!(show(ack));
                                     }
                                     _ => continue,
                                 }
                                 match &array[2] {
                                     RespDatatype::BulkString(offset) => {
-                                        dbg!(show(offset));
                                         let offset  = match String::from_utf8(offset.clone()) {
                                             Ok(offset) => offset,
                                             _ => continue,
                                         };
-                                        dbg!(&offset);
                                         let offset = match offset.parse::<usize>() {
                                             Ok(offset) => offset,
                                             _ => continue,
                                         };
-                                        dbg!(offset);
-                                        if offset >= replica.offset {
+                                        if offset > replica.offset {
                                             num_replies += 1;
                                             remove_indeces[i] = false;
                                         }
