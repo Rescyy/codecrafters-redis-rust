@@ -3,7 +3,7 @@ use std::{collections::LinkedList, time::Duration};
 use tokio::time::sleep;
 use tokio::{io::AsyncWriteExt, sync::Mutex, time::Instant};
 
-use crate::{deserialize, show, RedisCommand, RespDatatype, RespStreamHandler};
+use crate::{deserialize, RedisCommand, RespDatatype, RespStreamHandler};
 
 lazy_static! {
     static ref REPLICAS: Mutex<LinkedList<Replica>> = Mutex::new(LinkedList::new());
@@ -162,7 +162,7 @@ pub async fn wait_to_replicas(start: Instant, numreplicas: usize, timeout: usize
                                             Ok(offset) => offset,
                                             _ => continue,
                                         };
-                                        if offset > replica.offset {
+                                        if offset >= replica.offset {
                                             num_replies += 1;
                                             remove_indeces[i] = false;
                                         }
