@@ -4,7 +4,7 @@ use std::str::Split;
 use std::vec::IntoIter;
 use format_bytes::format_bytes;
 
-use crate::{get_value, is_valid_master_replid, serialize, set_config, set_value, set_value_expiry, show, RedisCommand, RespDatatype, RespStreamHandler, OK_STRING, PONG_STRING};
+use crate::{get_config, is_valid_master_replid, serialize, set_config, set_value, set_value_expiry, show, RedisCommand, RespDatatype, RespStreamHandler, OK_STRING, PONG_STRING};
 
 lazy_static! {  
     static ref PING_COMMAND: Vec<u8> = serialize(&RespDatatype::Array(vec![RespDatatype::BulkString(b"PING".to_vec())]));
@@ -195,15 +195,15 @@ async fn interpret_info(mut array_iterator: IntoIter<RespDatatype>) -> Option<Re
     };
     match &arg[..] {
         b"replication" => {
-            let role = match get_value(b"role").await {
+            let role = match get_config(b"role").await {
                 Some(role) => role,
                 None => return make_error_command("Error happened in the Redis. For some reason this server does not have a role.")
             };
-            let master_replid = match get_value(b"master_replid").await {
+            let master_replid = match get_config(b"master_replid").await {
                 Some(master_replid) => master_replid,
                 None => return make_error_command("Error happened in the Redis. For some reason this server does not have a role.")
             };
-            let master_repl_offset = match get_value(b"master_repl_offset").await {
+            let master_repl_offset = match get_config(b"master_repl_offset").await {
                 Some(master_repl_offset) => master_repl_offset,
                 None => return make_error_command("Error happened in the Redis. For some reason this server does not have a role.")
             };
@@ -250,6 +250,7 @@ async fn interpret_replconf(mut array_iterator: IntoIter<RespDatatype>, replica_
                             Some(RespDatatype::BulkString(getack_arg)) => getack_arg,
                             _ => return make_error_command("Invalid argument for GETACK"),
                         };
+                        println!("GETACK");
                         if &getack_arg[..] == b"*" {
                             return Some(RedisCommand::ReplconfAck(replica_data.bytes_processed.to_string().into_bytes()))
                         }
