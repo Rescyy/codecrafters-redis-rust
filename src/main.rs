@@ -93,8 +93,8 @@ async fn main() {
         config.insert(b"master_repl_offset".to_vec(), vec![b'0']);
         start_replicas();
     }
-
     drop(config);
+
     loop {
         let stream = listener.accept().await;
         

@@ -123,6 +123,7 @@ async fn interpret_info(mut array_iterator: IntoIter<RespDatatype>) -> Option<Re
     };
     match &arg[..] {
         b"replication" => {
+            println!("CONFIG: {:?}", CONFIG.lock().await);
             let role = match get_config(b"role").await {
                 Some(role) => role,
                 None => return make_error_command("Error happened in the Redis. For some reason this server does not have a role.")
